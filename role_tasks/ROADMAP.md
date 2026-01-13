@@ -11,17 +11,17 @@ This document tracks the high-level progress of all roles and defines the critic
 These tasks can be executed in parallel after Phase 0.
 
 ### Backend & CLI
-- [ ] **Develop Python CLI** (Senior Software Engineer)
+- [x] **Develop Python CLI** (Senior Software Engineer)
     - *Story*: `role_tasks/senior-software-engineer/stories/develop-python-cli.md`
     - *Dependencies*: `libs/core-py`
     - *Goal*: Implement the "Guardian" CLI for local code analysis.
-- [ ] **Expose FastAPI Endpoints** (Senior Software Engineer)
+- [x] **Expose FastAPI Endpoints** (Senior Software Engineer)
     - *Story*: `role_tasks/senior-software-engineer/stories/expose-fastapi-endpoints.md`
     - *Dependencies*: `libs/core-py`
     - *Goal*: Create the orchestration layer for the web dashboard.
 
 ### Client Side
-- [ ] **Build VSCode Extension Host** (Senior Software Engineer)
+- [x] **Build VSCode Extension Host** (Senior Software Engineer)
     - *Story*: `role_tasks/senior-software-engineer/stories/build-vscode-extension-host.md`
     - *Dependencies*: `clients/vscode`
     - *Goal*: Basic VSCode extension structure communicating with the CLI/LSP.

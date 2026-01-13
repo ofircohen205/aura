@@ -7,3 +7,11 @@ dependencies = []
 
 [tool.uv.workspace]
 members = ["apps/backend", "clients/cli", "libs/core-py"]
+
+[tool.uv.sources]
+cli = { workspace = true, editable = true }
+
+[dependency-groups]
+dev = [
+    "cli",
+]

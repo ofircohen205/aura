@@ -45,3 +45,7 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Virtual Environments
+.venv/
+.env/

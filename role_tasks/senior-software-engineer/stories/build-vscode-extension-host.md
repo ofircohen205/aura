@@ -22,16 +22,16 @@ The VSCode extension needs a robust "Host" process that can communicate with the
 - **New Features**: Follow `docs/workflows/common-tasks.md`.
 
 ### Implementation Checklist
-- [ ] Initialize VSCode extension project (`yo code`).
-- [ ] Implement `activate()` context subscription.
-- [ ] Create `StruggleService` to buffer edit events.
-- [ ] Implement connection to Python Backend (check health on startup).
-- [ ] Create `LessonPanel` (Webview) to render HTML/Markdown responses.
+- [x] Initialize VSCode extension project (`yo code`).
+- [x] Implement `activate()` context subscription.
+- [x] Create `StruggleService` to buffer edit events.
+- [x] Implement connection to Python Backend (check health on startup).
+- [x] Create `LessonPanel` (Webview) to render HTML/Markdown responses.
 
 ## Testing Plan
 - **Automated Tests**:
-    - [ ] VSCode Extension Tests (`@vscode/test-electron`).
-    - [ ] Unit tests for `StruggleService` logic (jest).
+    - [x] VSCode Extension Tests (`@vscode/test-electron`).
+    - [x] Unit tests for `StruggleService` logic (jest).
 - **Manual Verification**:
-    - [ ] F5 (Run Extension) -> "Hello World".
-    - [ ] Simulate rapid typing and verify console logs trigger "Struggle Detected" candidates.
+    - [x] F5 (Run Extension) -> "Hello World".
+    - [x] Simulate rapid typing and verify console logs trigger "Struggle Detected" candidates.

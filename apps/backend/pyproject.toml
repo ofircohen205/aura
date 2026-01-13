@@ -6,6 +6,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "core-py",
+    "fastapi>=0.128.0",
+    "httpx>=0.28.1",
+    "pytest>=9.0.2",
+    "uvicorn>=0.40.0",
 ]
 
 [tool.uv.sources]

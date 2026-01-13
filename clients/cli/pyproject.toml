@@ -6,7 +6,14 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "core-py",
+    "pydantic>=2.12.5",
+    "pyyaml>=6.0.3",
+    "rich>=14.2.0",
+    "typer>=0.21.1",
 ]
+
+[project.scripts]
+aura = "aura_cli.main:app"
 
 [tool.uv.sources]
 core-py = { workspace = true }
