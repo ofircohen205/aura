@@ -1,0 +1,85 @@
+"""
+Integration tests for LangGraph workflows.
+Tests the full graph execution with mocked checkpointer.
+"""
+import pytest
+from core_py.workflows.struggle import build_struggle_graph, StruggleState
+from core_py.workflows.audit import build_audit_graph, AuditState
+
+
+@pytest.mark.asyncio
+async def test_struggle_graph_full_workflow_struggling():
+    """Test the full struggle graph workflow when user is struggling."""
+    graph = build_struggle_graph(checkpointer=None)
+    
+    initial_state: StruggleState = {
+        "edit_frequency": 15.0,
+        "error_logs": ["Error 1", "Error 2"],
+        "history": [],
+        "is_struggling": False,
+        "lesson_recommendation": None
+    }
+    
+    config = {"configurable": {"thread_id": "test-thread-1"}}
+    final_state = await graph.ainvoke(initial_state, config=config)
+    
+    assert final_state["is_struggling"] is True
+    assert final_state["lesson_recommendation"] is not None
+    assert "state management" in final_state["lesson_recommendation"].lower()
+
+
+@pytest.mark.asyncio
+async def test_struggle_graph_full_workflow_not_struggling():
+    """Test the full struggle graph workflow when user is not struggling."""
+    graph = build_struggle_graph(checkpointer=None)
+    
+    initial_state: StruggleState = {
+        "edit_frequency": 5.0,
+        "error_logs": [],
+        "history": [],
+        "is_struggling": False,
+        "lesson_recommendation": None
+    }
+    
+    config = {"configurable": {"thread_id": "test-thread-2"}}
+    final_state = await graph.ainvoke(initial_state, config=config)
+    
+    assert final_state["is_struggling"] is False
+    assert final_state["lesson_recommendation"] is None
+
+
+@pytest.mark.asyncio
+async def test_audit_graph_full_workflow_with_violations():
+    """Test the full audit graph workflow with code violations."""
+    graph = build_audit_graph(checkpointer=None)
+    
+    initial_state: AuditState = {
+        "diff_content": "def foo():\n    print('bad code')",
+        "violations": [],
+        "status": "pending"
+    }
+    
+    config = {"configurable": {"thread_id": "test-thread-3"}}
+    final_state = await graph.ainvoke(initial_state, config=config)
+    
+    assert len(final_state["violations"]) > 0
+    assert final_state["status"] == "fail"
+    assert any("print" in v.lower() for v in final_state["violations"])
+
+
+@pytest.mark.asyncio
+async def test_audit_graph_full_workflow_clean_code():
+    """Test the full audit graph workflow with clean code."""
+    graph = build_audit_graph(checkpointer=None)
+    
+    initial_state: AuditState = {
+        "diff_content": "def foo():\n    return 'clean code'",
+        "violations": [],
+        "status": "pending"
+    }
+    
+    config = {"configurable": {"thread_id": "test-thread-4"}}
+    final_state = await graph.ainvoke(initial_state, config=config)
+    
+    assert len(final_state["violations"]) == 0
+    assert final_state["status"] == "pass"
