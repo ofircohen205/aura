@@ -1,0 +1,9 @@
+[project]
+name = "aura"
+version = "0.1.0"
+description = "Aura Monorepo"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["apps/backend", "clients/cli", "libs/core-py"]

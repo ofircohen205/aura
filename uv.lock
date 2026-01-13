@@ -1,0 +1,43 @@
+version = 1
+revision = 3
+requires-python = ">=3.13"
+
+[manifest]
+members = [
+    "aura",
+    "backend",
+    "cli",
+    "core-py",
+]
+
+[[package]]
+name = "aura"
+version = "0.1.0"
+source = { virtual = "." }
+
+[[package]]
+name = "backend"
+version = "0.1.0"
+source = { virtual = "apps/backend" }
+dependencies = [
+    { name = "core-py" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "core-py", editable = "libs/core-py" }]
+
+[[package]]
+name = "cli"
+version = "0.1.0"
+source = { virtual = "clients/cli" }
+dependencies = [
+    { name = "core-py" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "core-py", editable = "libs/core-py" }]
+
+[[package]]
+name = "core-py"
+version = "0.1.0"
+source = { editable = "libs/core-py" }

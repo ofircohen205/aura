@@ -1,0 +1,9 @@
+{
+  "name": "aura-root",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "clients/*",
+    "libs/*"
+  ]
+}
