@@ -79,7 +79,15 @@ async def test_trigger_audit_workflow_with_violations():
         ) as ac:
             response = await ac.post(
                 "/api/v1/workflows/workflows/audit",
-                json={"diff_content": "def foo(): print('bad')"},
+                json={
+                    "diff_content": """--- a/src/file.py
++++ b/src/file.py
+@@ -1,3 +1,3 @@
+ def foo():
+-    pass
++    print('bad code')
+"""
+                },
             )
         assert response.status_code == 200
         data = response.json()
@@ -101,7 +109,15 @@ async def test_trigger_audit_workflow_clean_code():
         ) as ac:
             response = await ac.post(
                 "/api/v1/workflows/workflows/audit",
-                json={"diff_content": "def foo():\n    return 'clean code'"},
+                json={
+                    "diff_content": """--- a/src/file.py
++++ b/src/file.py
+@@ -1,3 +1,3 @@
+ def foo():
+-    pass
++    return 'clean code'
+"""
+                },
             )
         assert response.status_code == 200
         data = response.json()

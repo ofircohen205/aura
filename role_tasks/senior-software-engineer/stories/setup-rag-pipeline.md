@@ -7,13 +7,13 @@
 
 ## Desired Feature
 
-To provide accurate architectural advice, the system needs to "read" and "index" the codebase and documentation. This RAG (Retrieval-Augmented Generation) pipeline will ingest markdown files, code snippets, and "Golden Path" examples into a vector store (ChromaDB for local, Qdrant for prod).
+To provide accurate architectural advice, the system needs to "read" and "index" the codebase and documentation. This RAG (Retrieval-Augmented Generation) pipeline will ingest markdown files, code snippets, and "Golden Path" examples into a vector store (pgvector for production, FAISS for local development).
 
 ## Planning & Technical Spec
 
 ### Architecture
 
-- **Vector Store**: ChromaDB (dev/local).
+- **Vector Store**: pgvector (PostgreSQL extension, production) / FAISS (local development).
 - **Embedding Model**: `text-embedding-3-small` (OpenAI) or local `sentence-transformers` (via Ollama).
 - **Ingestion Pipeline**:
   - Directory walker to find `.md`, `.py`, `.ts` files.
@@ -27,7 +27,7 @@ To provide accurate architectural advice, the system needs to "read" and "index"
 
 ### Implementation Checklist
 
-- [ ] Set up ChromaDB client/container.
+- [ ] Set up pgvector extension in PostgreSQL (production) or FAISS index (local development).
 - [ ] Create `RagService` class.
 - [ ] Implement `ingest_document(path: str)` method.
 - [ ] Implement `query_knowledge(query: str, filters: dict)` method.

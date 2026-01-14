@@ -5,12 +5,11 @@ JWT utilities, password hashing, and other security-related functions.
 Currently provides placeholders for future authentication implementation.
 """
 
-import hashlib
-import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import bcrypt
 from loguru import logger
 
 
@@ -27,46 +26,57 @@ def generate_secret_key(length: int = 32) -> str:
     return secrets.token_hex(length)
 
 
-def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
+def hash_password(password: str) -> str:
     """
-    Hash a password using SHA-256 with salt.
+    Hash a password using bcrypt.
 
-    Note: This is a placeholder implementation. In production, use
-    bcrypt, argon2, or similar secure password hashing algorithms.
+    Uses bcrypt for secure password hashing with:
+    - Built-in salting (automatic, unique per password)
+    - Configurable cost factor (default: 12 rounds)
+    - Resistance to rainbow table attacks
+    - Resistance to brute force attacks
 
     Args:
         password: Plain text password
-        salt: Optional salt (generated if not provided)
 
     Returns:
-        Tuple of (hashed_password, salt)
+        Bcrypt hashed password string (includes salt)
+
+    Example:
+        ```python
+        hashed = hash_password("my_password")
+        # Store hashed in database
+        ```
     """
-    if salt is None:
-        salt = secrets.token_hex(16)
+    # Encode password to bytes
+    password_bytes = password.encode("utf-8")
 
-    # Combine password and salt
-    combined = f"{password}{salt}".encode()
+    # Generate salt and hash password (bcrypt handles salting internally)
+    # Cost factor of 12 is a good balance between security and performance
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=12))
 
-    # Hash using SHA-256
-    hashed = hashlib.sha256(combined).hexdigest()
-
-    return hashed, salt
+    # Return as string (bcrypt hash includes salt)
+    return hashed.decode("utf-8")
 
 
-def verify_password(password: str, hashed_password: str, salt: str) -> bool:
+def verify_password(password: str, hashed_password: str) -> bool:
     """
-    Verify a password against a hash.
+    Verify a password against a bcrypt hash.
 
     Args:
         password: Plain text password to verify
-        hashed_password: Stored password hash
-        salt: Salt used for hashing
+        hashed_password: Stored bcrypt password hash (includes salt)
 
     Returns:
         True if password matches, False otherwise
     """
-    computed_hash, _ = hash_password(password, salt)
-    return hmac.compare_digest(computed_hash, hashed_password)
+    try:
+        password_bytes = password.encode("utf-8")
+        hashed_bytes = hashed_password.encode("utf-8")
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception as e:
+        logger.warning(f"Password verification failed: {e}")
+        return False
 
 
 def create_jwt_token(
@@ -75,10 +85,9 @@ def create_jwt_token(
     expires_delta: timedelta | None = None,
 ) -> str:
     """
-    Create a JWT token (placeholder implementation).
+    Create a JWT token.
 
-    Note: This is a placeholder. In production, use a library like
-    python-jose or PyJWT for proper JWT encoding.
+    WARNING: This function is not yet implemented and will raise NotImplementedError.
 
     Args:
         payload: Token payload data
@@ -86,20 +95,31 @@ def create_jwt_token(
         expires_delta: Optional expiration time delta
 
     Returns:
-        JWT token string (placeholder)
+        JWT token string
+
+    Raises:
+        NotImplementedError: This function is not yet implemented
+
+    Note:
+        In production, use a library like python-jose or PyJWT for proper JWT encoding.
+        Example:
+        ```python
+        from jose import jwt
+        token = jwt.encode(payload, secret_key, algorithm="HS256")
+        ```
     """
-    logger.warning("JWT token creation is a placeholder - implement with proper JWT library")
-    # TODO: Implement proper JWT encoding using python-jose or PyJWT
-    # For now, return a placeholder
-    return "placeholder_jwt_token"
+    raise NotImplementedError(
+        "create_jwt_token() is not yet implemented. "
+        "Use python-jose or PyJWT for JWT token creation. "
+        "Example: from jose import jwt; token = jwt.encode(payload, secret_key, algorithm='HS256')"
+    )
 
 
 def verify_jwt_token(token: str, secret_key: str) -> dict[str, Any] | None:
     """
-    Verify and decode a JWT token (placeholder implementation).
+    Verify and decode a JWT token.
 
-    Note: This is a placeholder. In production, use a library like
-    python-jose or PyJWT for proper JWT decoding and verification.
+    WARNING: This function is not yet implemented and will raise NotImplementedError.
 
     Args:
         token: JWT token string
@@ -107,11 +127,23 @@ def verify_jwt_token(token: str, secret_key: str) -> dict[str, Any] | None:
 
     Returns:
         Decoded payload if valid, None otherwise
+
+    Raises:
+        NotImplementedError: This function is not yet implemented
+
+    Note:
+        In production, use a library like python-jose or PyJWT for proper JWT decoding.
+        Example:
+        ```python
+        from jose import jwt
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        ```
     """
-    logger.warning("JWT token verification is a placeholder - implement with proper JWT library")
-    # TODO: Implement proper JWT decoding using python-jose or PyJWT
-    # For now, return None
-    return None
+    raise NotImplementedError(
+        "verify_jwt_token() is not yet implemented. "
+        "Use python-jose or PyJWT for JWT token verification. "
+        "Example: from jose import jwt; payload = jwt.decode(token, secret_key, algorithms=['HS256'])"
+    )
 
 
 def get_current_timestamp() -> datetime:

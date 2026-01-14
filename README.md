@@ -46,27 +46,49 @@ See [docs/workflows/project-architecture.md](docs/workflows/project-architecture
 
 ### Prerequisites
 
-- [uv](https://github.com/astral-sh/uv) (for Python)
-- [Node.js](https://nodejs.org/) & npm (for TypeScript)
-- [Just](https://github.com/casey/just) (optional, for command running)
+- [Docker](https://docs.docker.com/get-docker/) >= 20.10 (Required)
+- [Docker Compose](https://docs.docker.com/compose/) >= 2.0 (Required)
+- [Just](https://github.com/casey/just) (Optional, for convenient commands)
+
+### Quick Start
+
+```bash
+# Start all development services
+just dev
+```
+
+This will start:
+
+- Backend API on http://localhost:8000
+- Web Dashboard on http://localhost:3000
+- PostgreSQL database on localhost:5432
 
 ### Installation
 
-```bash
-# Install all dependencies
-just install
+No installation needed! Everything runs in Docker containers. See [Getting Started Guide](docs/GETTING_STARTED.md) for detailed setup instructions.
 
-# Or manually:
-uv sync
-npm install
-```
+## Documentation
+
+- **[User Guide](docs/USER_GUIDE.md)** - Comprehensive guide to using Aura (API, CLI, workflows)
+- **[Getting Started](docs/GETTING_STARTED.md)** - Setup and installation guide
+- **[Development Guide](docs/DEVELOPMENT.md)** - Development workflow and practices
+- **[Project Architecture](docs/workflows/project-architecture.md)** - System architecture overview
 
 ## Development
 
 ```bash
-# Run backend
+# Start all services
+just dev
+
+# Run backend only
 just dev-backend
 
-# Run web dashboard
+# Run web dashboard only
 just dev-web
+
+# Run tests
+just test
+
+# Lint code
+just lint
 ```

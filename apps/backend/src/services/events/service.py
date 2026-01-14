@@ -26,6 +26,14 @@ class EventsService:
         """
         Ingest and process an event.
 
+        WARNING: This is a stub implementation. Event processing logic is not yet implemented.
+        This function currently only validates input and returns a success response.
+        It does NOT:
+        - Store events in database
+        - Trigger workflows based on event type
+        - Send to message queue for async processing
+        - Update analytics/metrics
+
         Args:
             source: Event source identifier
             event_type: Type of event
@@ -38,6 +46,14 @@ class EventsService:
         Raises:
             InvalidEventError: If event data is invalid
             EventProcessingError: If event processing fails
+
+        Note:
+            This function must be fully implemented before production use.
+            Required implementation:
+            - Store event in database
+            - Trigger workflows based on event type
+            - Send to message queue for async processing
+            - Update analytics/metrics
         """
         # Validate input
         if not source or not source.strip():
@@ -53,7 +69,7 @@ class EventsService:
         event_timestamp = timestamp or datetime.now()
 
         logger.info(
-            "Event ingested",
+            "Event ingested (stub implementation)",
             extra={
                 "event_id": event_id,
                 "source": source,
@@ -63,13 +79,14 @@ class EventsService:
         )
 
         try:
-            # TODO: Implement actual event processing logic
+            # STUB: Event processing logic not yet implemented
+            # TODO: Implement:
             # - Store event in database
             # - Trigger workflows based on event type
             # - Send to message queue for async processing
             # - Update analytics/metrics
 
-            # For now, return success response
+            # For now, return success response (stub)
             return {
                 "status": "received",
                 "event_id": event_id,
@@ -91,5 +108,8 @@ class EventsService:
             raise EventProcessingError(str(e)) from e
 
 
-# Global service instance
+# Global service instance (singleton pattern)
+# NOTE: This singleton pattern is acceptable for stateless services like EventsService.
+# For production with dependency injection frameworks, consider using DI instead.
+# The service is stateless and thread-safe, so singleton is safe for concurrent requests.
 events_service = EventsService()

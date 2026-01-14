@@ -77,7 +77,16 @@ async def test_trigger_audit_workflow_with_violations_simple():
 
         client = TestClient(test_app)
         response = client.post(
-            "/api/v1/workflows/audit", json={"diff_content": "def foo(): print('bad')"}
+            "/api/v1/workflows/audit",
+            json={
+                "diff_content": """--- a/src/file.py
++++ b/src/file.py
+@@ -1,3 +1,3 @@
+ def foo():
+-    pass
++    print('bad')
+"""
+            },
         )
         assert response.status_code == 200
         data = response.json()
