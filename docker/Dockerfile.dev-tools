@@ -1,9 +1,12 @@
 FROM python:3.13-slim
 
+# Set shell with pipefail for safer pipe operations
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
     build-essential \
@@ -14,7 +17,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Install Node.js (for TypeScript/JavaScript tools)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs
+    && apt-get install -y --no-install-recommends nodejs
 
 # Install Just (command runner)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
@@ -25,6 +28,11 @@ COPY apps/backend/pyproject.toml apps/backend/
 COPY libs/core-py/pyproject.toml libs/core-py/
 COPY clients/cli/pyproject.toml clients/cli/
 
+# Copy libs and apps source (needed for editable install in workspace)
+COPY libs libs
+COPY clients clients
+COPY apps/backend apps/backend
+
 # Copy package.json files for Node.js dependencies
 COPY package.json package-lock.json* ./
 COPY apps/web-dashboard/package.json apps/web-dashboard/
@@ -33,7 +41,9 @@ COPY apps/web-dashboard/package.json apps/web-dashboard/
 RUN uv sync --frozen
 
 # Install Node.js dependencies
-RUN cd apps/web-dashboard && npm install
+WORKDIR /app/apps/web-dashboard
+RUN npm install
+WORKDIR /app
 
 # Set up environment
 ENV PATH="/app/.venv/bin:/usr/local/bin:$PATH"
