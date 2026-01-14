@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -15,7 +16,18 @@ from main import app  # noqa: E402
 client = TestClient(app)
 
 
-def test_health():
+@patch("main.async_engine")
+def test_health(mock_engine):
+    """Test health check endpoint with mocked database connection."""
+    # Mock async context manager for database connection
+    mock_conn = AsyncMock()
+    mock_conn.execute = AsyncMock(return_value=None)
+
+    # Mock the async context manager
+    mock_engine.connect = MagicMock(return_value=mock_conn)
+    mock_engine.connect.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_engine.connect.return_value.__aexit__ = AsyncMock(return_value=None)
+
     response = client.get("/health")
     assert response.status_code == 200
     assert "status" in response.json()

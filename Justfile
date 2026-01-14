@@ -25,37 +25,56 @@ install-node:
 
 # Start all development services (backend, web, postgres, etc.)
 dev:
-    docker-compose -f docker/docker-compose.dev.yml up --build
+    docker system prune -f; \
+    docker image prune -f; \
+    docker volume prune -f; \
+    docker compose -f docker/docker-compose.dev.yml up --build
+
+# Rebuild all development services
+dev-rebuild:
+    docker system prune -f; \
+    docker image prune -f; \
+    docker volume prune -f; \
+    docker compose -f docker/docker-compose.dev.yml up -d --build --force-recreate
 
 # Start development services in detached mode
 dev-detached:
-    docker-compose -f docker/docker-compose.dev.yml up -d --build
+    docker system prune -f; \
+    docker image prune -f; \
+    docker volume prune -f; \
+    docker compose -f docker/docker-compose.dev.yml up -d --build
 
 # Stop all development services
 dev-stop:
-    docker-compose -f docker/docker-compose.dev.yml down
+    docker system prune -f; \
+    docker image prune -f; \
+    docker volume prune -f; \
+    docker compose -f docker/docker-compose.dev.yml down
 
 # Stop and remove volumes (clean slate)
 dev-clean:
-    docker-compose -f docker/docker-compose.dev.yml down -v
+    docker system prune -f; \
+    docker image prune -f; \
+    docker volume prune -f; \
+    docker compose -f docker/docker-compose.dev.yml down -v
 
 # View logs from all services
 dev-logs:
-    docker-compose -f docker/docker-compose.dev.yml logs -f
+    docker compose -f docker/docker-compose.dev.yml logs -f
 
 # View logs from specific service
 # Usage: just dev-logs-service backend
 dev-logs-service SERVICE:
-    docker-compose -f docker/docker-compose.dev.yml logs -f {{SERVICE}}
+    docker compose -f docker/docker-compose.dev.yml logs -f {{SERVICE}}
 
 # Execute command in dev-tools container
 # Usage: just docker-exec "command"
 docker-exec COMMAND:
-    docker-compose -f docker/docker-compose.dev.yml exec dev-tools {{COMMAND}}
+    docker compose -f docker/docker-compose.dev.yml exec dev-tools {{COMMAND}}
 
 # Get shell in dev-tools container
 docker-shell:
-    docker-compose -f docker/docker-compose.dev.yml exec dev-tools /bin/bash
+    docker compose -f docker/docker-compose.dev.yml exec dev-tools /bin/bash
 
 # =============================================================================
 # Development Pipeline Commands
@@ -78,20 +97,20 @@ branch-linear ISSUE_ID DESCRIPTION:
 # Run all tests (Python + TypeScript) in Docker
 test:
     @echo "Running all tests in Docker..."
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
 
 # Run Python tests in Docker
 test-py:
     @echo "Running Python tests in Docker..."
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
 
 # Run TypeScript tests in Docker
 test-ts:
     @echo "Running TypeScript tests in Docker..."
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
 
 # Run linting (Python + TypeScript) in Docker
 lint:
@@ -102,25 +121,25 @@ lint:
 # Run Python linting in Docker
 lint-py:
     @echo "Linting Python code in Docker..."
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff check apps/backend libs/core-py clients/cli"
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run mypy apps/backend libs/core-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff check apps/backend libs/core-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run mypy apps/backend libs/core-py clients/cli"
 
 # Run TypeScript linting in Docker
 lint-ts:
     @echo "Linting TypeScript code in Docker..."
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm run lint"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm run lint"
 
 # Auto-fix linting issues in Docker
 lint-fix:
     @echo "Fixing linting issues in Docker..."
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff check --fix apps/backend libs/core-py clients/cli"
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff format apps/backend libs/core-py clients/cli"
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm run lint:fix"
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm run format"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff check --fix apps/backend libs/core-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff format apps/backend libs/core-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm run lint:fix"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm run format"
 
 # Run pre-commit hooks on all files in Docker
 pre-commit-all:
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run pre-commit run --all-files"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run pre-commit run --all-files"
 
 # Run CI checks locally (same as GitHub Actions CI)
 # Usage: just ci-check [--skip-tests] [--skip-build]
@@ -195,8 +214,8 @@ code-review:
 # Run security checks in Docker
 security-check:
     @echo "Running security checks in Docker..."
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run bandit -r apps/backend libs/core-py clients/cli"
-    docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm audit"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run bandit -r apps/backend libs/core-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm audit"
 
 # =============================================================================
 # Git Helpers

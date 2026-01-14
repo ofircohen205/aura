@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 # Add src directory to path for imports
 SRC_DIR = Path(__file__).parent.parent / "src"
@@ -25,13 +25,15 @@ from main import app  # noqa: E402
 async def test_trigger_struggle_workflow():
     """Test triggering the struggle workflow via API."""
     # Mock the checkpointer to avoid database dependency
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None  # Use None checkpointer
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as ac:
             response = await ac.post(
-                "/api/v1/workflows/struggle",
+                "/api/v1/workflows/workflows/struggle",
                 json={"edit_frequency": 20.0, "error_logs": ["Error 1"], "history": []},
             )
         assert response.status_code == 200
@@ -49,9 +51,11 @@ async def test_trigger_struggle_workflow_not_struggling():
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as ac:
             response = await ac.post(
-                "/api/v1/workflows/struggle",
+                "/api/v1/workflows/workflows/struggle",
                 json={"edit_frequency": 5.0, "error_logs": [], "history": []},
             )
         assert response.status_code == 200
@@ -69,9 +73,12 @@ async def test_trigger_audit_workflow_with_violations():
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as ac:
             response = await ac.post(
-                "/api/v1/workflows/audit", json={"diff_content": "def foo(): print('bad')"}
+                "/api/v1/workflows/workflows/audit",
+                json={"diff_content": "def foo(): print('bad')"},
             )
         assert response.status_code == 200
         data = response.json()
@@ -88,9 +95,11 @@ async def test_trigger_audit_workflow_clean_code():
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as ac:
             response = await ac.post(
-                "/api/v1/workflows/audit",
+                "/api/v1/workflows/workflows/audit",
                 json={"diff_content": "def foo():\n    return 'clean code'"},
             )
         assert response.status_code == 200
@@ -111,8 +120,10 @@ async def test_get_workflow_state_without_db():
         mock_get_checkpointer.return_value.__aenter__.return_value = mock_checkpointer_instance
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
-        async with AsyncClient(app=app, base_url="http://test") as ac:
-            response = await ac.get("/api/v1/workflows/non-existent-thread-id")
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as ac:
+            response = await ac.get("/api/v1/workflows/workflows/non-existent-thread-id")
 
         # Without database, checkpoint won't be found
         assert response.status_code == 404
