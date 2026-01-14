@@ -1,5 +1,7 @@
 # Story: Develop Python CLI with Hook Integration
 
+**GitHub Issue**: #1
+
 **Role:** Senior Software Engineer
 **Related SRS Section:** 1, 3.2, 4.2
 
@@ -22,6 +24,9 @@ The CLI is the guardian of the codebase. It needs to intercept Git commands (`co
   - Exit code 0 = Pass, 1 = Block.
 
 ### Standards & Workflows
+
+- **Git Flow**: Create a new branch for this story and work only on that branch.
+- **Issue Updates**: Reference the GitHub Issue (check header) in your commits and PRs.
 - **Architecture**: Follow `docs/workflows/project-architecture.md` (CLI Architecture section).
 - **New Commands**: Follow `docs/workflows/common-tasks.md` (CLI: Adding a New Command).
 

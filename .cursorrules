@@ -1,0 +1,139 @@
+# Aura Project Cursor Rules
+
+This project uses AI Coding Roles to provide expert-level guidance. Reference roles from `@ai-coding-roles/roles/` when needed.
+
+## Project Context
+
+This is a polyglot monorepo with:
+- **Backend**: FastAPI (Python) in `apps/backend/`
+- **Frontend**: Next.js (TypeScript) in `apps/web-dashboard/`
+- **Clients**: VSCode extension, CLI, GitHub app
+- **Libraries**: Shared Python (`libs/core-py/`) and TypeScript (`libs/shared-ts/`) code
+
+## Default Code Review
+
+When reviewing code, act as `@ai-coding-roles/roles/core-development/senior-software-engineer.md`
+
+## Role-Based Guidance by Context
+
+### Backend Development (Python/FastAPI)
+For files in `apps/backend/`, `libs/core-py/`, or Python CLI:
+- Primary: `@ai-coding-roles/roles/specialized-engineering/backend-engineer.md`
+- API Design: `@ai-coding-roles/roles/architecture-design/api-architect.md`
+- Security: `@ai-coding-roles/roles/quality-security/security-engineer.md`
+
+### Frontend Development (TypeScript/Next.js)
+For files in `apps/web-dashboard/`, `clients/vscode/`, `clients/github-app/`:
+- Primary: `@ai-coding-roles/roles/specialized-engineering/frontend-engineer.md`
+- UX: `@ai-coding-roles/roles/architecture-design/ux-designer.md`
+- Security: `@ai-coding-roles/roles/quality-security/security-engineer.md`
+
+### Architecture & System Design
+For system design, architecture decisions, or cross-cutting concerns:
+- Primary: `@ai-coding-roles/roles/architecture-design/software-architect.md`
+- Solutions: `@ai-coding-roles/roles/architecture-design/solutions-architect.md`
+- API Design: `@ai-coding-roles/roles/architecture-design/api-architect.md`
+
+### Infrastructure & DevOps
+For Docker, CI/CD, infrastructure, or deployment:
+- Primary: `@ai-coding-roles/roles/infrastructure-operations/devops-engineer.md`
+- Platform: `@ai-coding-roles/roles/infrastructure-operations/platform-engineer.md`
+- SRE: `@ai-coding-roles/roles/infrastructure-operations/site-reliability-engineer.md`
+
+### Database & Data
+For database schemas, migrations, or data pipelines:
+- Primary: `@ai-coding-roles/roles/infrastructure-operations/database-administrator.md`
+- Data Engineering: `@ai-coding-roles/roles/specialized-engineering/data-engineer.md`
+
+### Security Reviews
+For authentication, authorization, or security-sensitive code:
+- Always consult: `@ai-coding-roles/roles/quality-security/security-engineer.md`
+- Combine with relevant role (backend/frontend) for context
+
+### Performance Optimization
+For performance issues, profiling, or optimization:
+- Primary: `@ai-coding-roles/roles/quality-security/performance-engineer.md`
+- Database: `@ai-coding-roles/roles/infrastructure-operations/database-administrator.md`
+
+### Testing & Quality
+For test strategy, test implementation, or quality assurance:
+- Primary: `@ai-coding-roles/roles/quality-security/qa-engineer.md`
+- Code Quality: `@ai-coding-roles/roles/core-development/senior-software-engineer.md`
+
+### Technical Leadership
+For code reviews, technical decisions, or mentorship:
+- Primary: `@ai-coding-roles/roles/core-development/tech-lead.md`
+- Senior Engineer: `@ai-coding-roles/roles/core-development/senior-software-engineer.md`
+
+## Project-Specific Guidelines
+
+### Code Quality Standards
+- Follow SOLID principles
+- Write self-documenting code
+- Include comprehensive error handling
+- Maintain test coverage
+- Use type hints in Python (type checking enabled)
+- Use TypeScript strict mode
+
+### Monorepo Structure
+- Keep shared code in `libs/`
+- Apps should depend on libs, not each other
+- Use proper dependency management (uv for Python, npm for Node.js)
+
+### API Design
+- Follow RESTful conventions for FastAPI endpoints
+- Use proper HTTP status codes
+- Implement versioning strategy (v1, v2, etc.)
+- Include comprehensive error responses
+
+### Security
+- Never commit secrets or API keys
+- Validate all inputs
+- Use proper authentication/authorization
+- Follow OWASP best practices
+
+### Testing
+- Write unit tests for business logic
+- Include integration tests for APIs
+- Test error cases and edge conditions
+- Maintain good test coverage
+
+## Usage Examples
+
+### Code Review
+```
+@ai-coding-roles/roles/core-development/senior-software-engineer.md
+Review this implementation for code quality and best practices
+```
+
+### API Development
+```
+Using @ai-coding-roles/roles/specialized-engineering/backend-engineer.md and @ai-coding-roles/roles/architecture-design/api-architect.md
+Design a new endpoint for user management
+```
+
+### Security Review
+```
+@ai-coding-roles/roles/quality-security/security-engineer.md
+Review this authentication implementation for security vulnerabilities
+```
+
+### Performance Investigation
+```
+@ai-coding-roles/roles/quality-security/performance-engineer.md
+Profile this endpoint and identify bottlenecks
+```
+
+### Full-Stack Feature
+```
+Using @ai-coding-roles/roles/specialized-engineering/backend-engineer.md and @ai-coding-roles/roles/specialized-engineering/frontend-engineer.md
+Implement a complete feature for user notifications
+```
+
+## Best Practices
+
+1. **Be Specific**: Reference exact role files rather than asking to "act as"
+2. **Combine Roles**: Use multiple perspectives for comprehensive reviews
+3. **Provide Context**: Include relevant code, architecture, or constraints
+4. **Iterate**: Start with one role, then bring in others as needed
+5. **Customize**: Adapt roles to project-specific needs when necessary

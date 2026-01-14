@@ -1,52 +1,52 @@
 {
-    "name": "vscode-extension",
-    "displayName": "Aura Guardian",
-    "version": "0.0.1",
-    "publisher": "aura",
-    "engines": {
-        "vscode": "^1.80.0"
-    },
-    "categories": [
-        "Other"
-    ],
-    "activationEvents": [
-        "onStartupFinished"
-    ],
-    "main": "./out/extension.js",
-    "contributes": {
-        "viewsContainers": {
-            "activitybar": [
-                {
-                    "id": "aura-sidebar",
-                    "title": "Aura Guardian",
-                    "icon": "$(heart)"
-                }
-            ]
-        },
-        "views": {
-            "aura-sidebar": [
-                {
-                    "id": "aura.lessonPanel",
-                    "name": "Aura Lessons"
-                }
-            ]
+  "name": "vscode-extension",
+  "displayName": "Aura Guardian",
+  "version": "0.0.1",
+  "publisher": "aura",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aura-sidebar",
+          "title": "Aura Guardian",
+          "icon": "$(heart)"
         }
+      ]
     },
-    "scripts": {
-        "vscode:prepublish": "npm run compile",
-        "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
-        "test": "npm run compile && node ./node_modules/vscode/bin/test"
-    },
-    "devDependencies": {
-        "@types/vscode": "^1.80.0",
-        "@types/node": "18.x",
-        "@types/ws": "^8.5.5",
-        "@types/mocha": "^10.0.1",
-        "typescript": "^5.0.0"
-    },
-    "dependencies": {
-        "axios": "^1.4.0",
-        "ws": "^8.13.0"
+    "views": {
+      "aura-sidebar": [
+        {
+          "id": "aura.lessonPanel",
+          "name": "Aura Lessons"
+        }
+      ]
     }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node ./node_modules/vscode/bin/test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "18.x",
+    "@types/ws": "^8.5.5",
+    "@types/mocha": "^10.0.1",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "ws": "^8.13.0"
+  }
 }

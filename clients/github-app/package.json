@@ -1,13 +1,13 @@
 {
-    "name": "github-app",
-    "version": "1.0.0",
-    "private": true,
-    "description": "A Probot app",
-    "scripts": {
-        "start": "probot run ./index.js",
-        "test": "jest"
-    },
-    "dependencies": {
-        "probot": "latest"
-    }
+  "name": "github-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Probot app",
+  "scripts": {
+    "start": "probot run ./index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "probot": "latest"
+  }
 }

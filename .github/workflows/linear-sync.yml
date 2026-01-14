@@ -1,0 +1,78 @@
+name: Linear Issue Sync
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed, reopened]
+  push:
+    branches:
+      - main
+
+jobs:
+  sync-linear:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract Linear Issue ID
+        id: extract_issue
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          ISSUE_ID=$(echo "$PR_BODY" | grep -oE 'AURA-[0-9]+' | head -1 || echo "")
+
+          if [ -z "$ISSUE_ID" ]; then
+            # Try to extract from branch name
+            BRANCH_NAME="${{ github.head_ref }}"
+            ISSUE_ID=$(echo "$BRANCH_NAME" | grep -oE 'AURA-[0-9]+' | head -1 || echo "")
+          fi
+
+          if [ -z "$ISSUE_ID" ]; then
+            echo "No Linear issue ID found in PR body or branch name"
+            echo "issue_id=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "issue_id=$ISSUE_ID" >> $GITHUB_OUTPUT
+          echo "Found Linear issue: $ISSUE_ID"
+
+      - name: Update Linear Issue Status
+        if: steps.extract_issue.outputs.issue_id != ''
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          ISSUE_ID="${{ steps.extract_issue.outputs.issue_id }}"
+          PR_STATE="${{ github.event.pull_request.state }}"
+          PR_MERGED="${{ github.event.pull_request.merged }}"
+
+          # Determine Linear status based on PR state
+          if [ "$PR_MERGED" == "true" ]; then
+            LINEAR_STATUS="Done"
+          elif [ "$PR_STATE" == "open" ]; then
+            LINEAR_STATUS="In Review"
+          else
+            LINEAR_STATUS="In Progress"
+          fi
+
+          echo "Updating Linear issue $ISSUE_ID to status: $LINEAR_STATUS"
+          echo "Note: This requires Linear API integration."
+          echo "For now, manually update the issue status in Linear."
+          echo ""
+          echo "To enable automatic updates, add LINEAR_API_KEY to GitHub secrets"
+          echo "and implement Linear API calls here."
+
+      - name: Comment on PR
+        if: steps.extract_issue.outputs.issue_id != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueId = '${{ steps.extract_issue.outputs.issue_id }}';
+            const prNumber = context.payload.pull_request.number;
+
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🔗 Linked to Linear issue: **${issueId}**\n\nView in Linear: https://linear.app/ofircohen/issue/${issueId}`
+            });

@@ -1,9 +1,9 @@
+import os
+import stat
+from pathlib import Path
 
 import typer
 from rich.console import Console
-from pathlib import Path
-import os
-import stat
 
 app = typer.Typer(help="Manage git hooks")
 console = Console()
@@ -25,6 +25,7 @@ echo "✅ Aura Audit Passed."
 exit 0
 """
 
+
 @app.command()
 def install():
     """
@@ -37,15 +38,17 @@ def install():
 
     hooks_dir = git_dir / "hooks"
     hooks_dir.mkdir(exist_ok=True)
-    
+
     pre_commit_path = hooks_dir / "pre-commit"
-    
+
     # Write the hook
     with open(pre_commit_path, "w") as f:
         f.write(HOOK_SCRIPT)
-    
+
     # Make executable
     st = os.stat(pre_commit_path)
     os.chmod(pre_commit_path, st.st_mode | stat.S_IEXEC)
-    
-    console.print(f"[bold green]Success:[/bold green] Installed pre-commit hook to {pre_commit_path}")
+
+    console.print(
+        f"[bold green]Success:[/bold green] Installed pre-commit hook to {pre_commit_path}"
+    )
