@@ -25,8 +25,8 @@ from main import app  # noqa: E402
 @pytest.mark.asyncio
 async def test_trigger_struggle_workflow():
     """Test triggering the struggle workflow via API."""
-    # Mock the checkpointer at the source to avoid database dependency
-    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
+    # Mock the checkpointer where it's used in the service to avoid database dependency
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None  # Use None checkpointer
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
@@ -48,7 +48,7 @@ async def test_trigger_struggle_workflow():
 @pytest.mark.asyncio
 async def test_trigger_struggle_workflow_not_struggling():
     """Test triggering the struggle workflow when user is not struggling."""
-    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
@@ -70,7 +70,7 @@ async def test_trigger_struggle_workflow_not_struggling():
 @pytest.mark.asyncio
 async def test_trigger_audit_workflow_with_violations():
     """Test triggering the audit workflow with code violations."""
-    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
@@ -92,7 +92,7 @@ async def test_trigger_audit_workflow_with_violations():
 @pytest.mark.asyncio
 async def test_trigger_audit_workflow_clean_code():
     """Test triggering the audit workflow with clean code."""
-    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
@@ -117,7 +117,7 @@ async def test_get_workflow_state_without_db():
     # Use a valid UUID format for the test
     non_existent_thread_id = str(uuid.uuid4())
 
-    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         # Mock checkpointer to return None (no checkpoint found)
         mock_checkpointer_instance = AsyncMock()
         mock_checkpointer_instance.aget.return_value = None

@@ -25,6 +25,26 @@ POOL_MAX_SIZE = int(os.getenv("POSTGRES_POOL_MAX_SIZE", "20"))
 POOL_MIN_SIZE = int(os.getenv("POSTGRES_POOL_MIN_SIZE", "5"))
 
 
+def _normalize_connection_string(uri: str) -> str:
+    """
+    Convert SQLAlchemy-style connection string to standard PostgreSQL format.
+
+    psycopg_pool.AsyncConnectionPool expects standard PostgreSQL format (postgresql://),
+    not SQLAlchemy-style format (postgresql+psycopg://).
+
+    Args:
+        uri: Connection string, possibly with SQLAlchemy-style prefix
+
+    Returns:
+        Normalized connection string in standard PostgreSQL format
+    """
+    # Convert postgresql+psycopg:// to postgresql://
+    if uri.startswith("postgresql+psycopg://"):
+        return uri.replace("postgresql+psycopg://", "postgresql://", 1)
+    # Already in standard format or other format, return as-is
+    return uri
+
+
 @asynccontextmanager
 async def get_checkpointer():
     """
@@ -51,8 +71,11 @@ async def get_checkpointer():
             },
         )
 
+        # Normalize connection string for psycopg (convert postgresql+psycopg:// to postgresql://)
+        normalized_uri = _normalize_connection_string(DB_URI)
+
         async with AsyncConnectionPool(
-            conninfo=DB_URI,
+            conninfo=normalized_uri,
             max_size=POOL_MAX_SIZE,
             min_size=POOL_MIN_SIZE,
             kwargs={"autocommit": True},
