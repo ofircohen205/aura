@@ -4,6 +4,7 @@ These tests work without a database by using None checkpointer.
 For full integration with database, run tests in Docker environment.
 """
 
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -11,6 +12,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+
+# Disable rate limiting for tests
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 # Add src directory to path for imports
 SRC_DIR = Path(__file__).parent.parent / "src"

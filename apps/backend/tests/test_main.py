@@ -1,8 +1,12 @@
+import os
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
+
+# Disable rate limiting for tests
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 # Add src directory to path for imports
 SRC_DIR = Path(__file__).parent.parent / "src"
