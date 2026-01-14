@@ -20,7 +20,7 @@ jobs:
         id: extract_issue
         run: |
           PR_BODY="${{ github.event.pull_request.body }}"
-          ISSUE_ID=$(echo "$PR_BODY" | grep -oE 'AURA-[0-9]+' | head -1 || echo "")
+          ISSUE_ID=$(echo "${PR_BODY}" | grep -oE 'AURA-[0-9]+' | head -1 || echo "")
 
           if [ -z "$ISSUE_ID" ]; then
             # Try to extract from branch name
