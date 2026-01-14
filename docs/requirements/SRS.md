@@ -11,7 +11,7 @@ The system follows a **Multi-Client Platform** architecture with a centralized s
   - **Knowledge Dashboard**: Web App (React/Next.js).
 - **Backend**: FastAPI (Python 3.11+) serving as the orchestration layer.
 - **Intelligence Engine**: LangGraph for stateful "Audit" and "Lesson" workflows.
-- **Data Layer**: PostgreSQL (User/Team Data) and ChromaDB/Qdrant (Vector Store).
+- **Data Layer**: PostgreSQL (User/Team Data) with pgvector extension (Vector Store).
 
 ## 2. Technical Stack & Standards
 
@@ -21,7 +21,7 @@ The system follows a **Multi-Client Platform** architecture with a centralized s
 - **Framework**: FastAPI (Async)
 - **Orchestration**: LangGraph (Stateful Agents)
 - **Database**: PostgreSQL (SQLAlchemy/Alembic)
-- **Vector Store**: ChromaDB (Local/Dev) / Qdrant (Prod)
+- **Vector Store**: pgvector (PostgreSQL extension, Production) / FAISS (Local/Dev)
 
 ### 2.2 Clients
 
@@ -77,7 +77,7 @@ Development tasks are assigned to the following roles from the `ai-coding-roles`
 ### 4.1 Core Platform & AI [@[Senior Software Engineer](../ai-coding-roles/roles/core-development/senior-software-engineer.md), @[ML Engineer](../ai-coding-roles/roles/specialized-engineering/machine-learning-engineer.md)]
 
 - **Task**: Implement LangGraph workflows for "Struggle Detection" and "Code Audit".
-- **Task**: Set up RAG pipeline (ChromaDB ingestion) for "Golden Path" documentation.
+- **Task**: Set up RAG pipeline (pgvector/FAISS ingestion) for "Golden Path" documentation.
 - **Task**: Expose FastAPI endpoints for multi-client access.
 
 ### 4.2 Client Engineering [@[Senior Software Engineer](../ai-coding-roles/roles/core-development/senior-software-engineer.md)]

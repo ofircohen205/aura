@@ -18,6 +18,15 @@ class AuditService:
         """
         Trigger a code audit for a repository.
 
+        WARNING: This is a stub implementation. Audit logic is not yet implemented.
+        This function currently only validates the repository path and returns a success response.
+        It does NOT:
+        - Validate repository exists and is accessible
+        - Run static analysis tools
+        - Check for violations
+        - Generate audit report
+        - Store results in database
+
         Args:
             repo_path: Path to the repository to audit
 
@@ -27,26 +36,36 @@ class AuditService:
         Raises:
             InvalidRepositoryPathError: If repository path is invalid
             AuditExecutionError: If audit execution fails
+
+        Note:
+            This function must be fully implemented before production use.
+            Required implementation:
+            - Validate repository exists and is accessible
+            - Run static analysis tools
+            - Check for violations using workflow system
+            - Generate audit report
+            - Store results in database
         """
         # Validate repository path
         if not repo_path or not repo_path.strip():
             raise InvalidRepositoryPathError(repo_path)
 
-        logger.info("Audit triggered", extra={"repo_path": repo_path})
+        logger.info("Audit triggered (stub implementation)", extra={"repo_path": repo_path})
 
         try:
-            # TODO: Implement actual audit logic
+            # STUB: Audit logic not yet implemented
+            # TODO: Implement:
             # - Validate repository exists and is accessible
             # - Run static analysis tools
-            # - Check for violations
+            # - Check for violations using workflow system
             # - Generate audit report
             # - Store results in database
 
-            # For now, return success response
+            # For now, return success response (stub)
             return {
                 "status": "audit_started",
                 "repo": repo_path,
-                "message": "Audit process initiated",
+                "message": "Audit process initiated (stub - not yet implemented)",
             }
 
         except InvalidRepositoryPathError:
@@ -64,5 +83,8 @@ class AuditService:
             raise AuditExecutionError(str(e)) from e
 
 
-# Global service instance
+# Global service instance (singleton pattern)
+# NOTE: This singleton pattern is acceptable for stateless services like AuditService.
+# For production with dependency injection frameworks, consider using DI instead.
+# The service is stateless and thread-safe, so singleton is safe for concurrent requests.
 audit_service = AuditService()

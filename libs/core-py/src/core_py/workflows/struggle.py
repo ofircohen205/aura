@@ -7,16 +7,19 @@ a lesson recommendation.
 """
 
 import logging
-import os
 from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
 
-logger = logging.getLogger(__name__)
+from core_py.ml.config import (
+    RAG_TOP_K,
+    STRUGGLE_THRESHOLD_EDIT_FREQUENCY,
+    STRUGGLE_THRESHOLD_ERROR_COUNT,
+)
+from core_py.prompts.loader import load_prompt
+from core_py.rag.service import get_rag_service
 
-# Configurable thresholds via environment variables
-STRUGGLE_THRESHOLD_EDIT_FREQUENCY = float(os.getenv("STRUGGLE_THRESHOLD_EDIT_FREQUENCY", "10.0"))
-STRUGGLE_THRESHOLD_ERROR_COUNT = int(os.getenv("STRUGGLE_THRESHOLD_ERROR_COUNT", "2"))
+logger = logging.getLogger(__name__)
 
 
 class StruggleState(TypedDict, total=False):
@@ -27,6 +30,55 @@ class StruggleState(TypedDict, total=False):
     history: list[str]
     is_struggling: bool
     lesson_recommendation: str | None
+
+
+def validate_struggle_state(state: StruggleState) -> StruggleState:
+    """
+    Validate and normalize struggle state structure.
+
+    Ensures required fields are present and have correct types.
+    Provides default values for optional fields.
+
+    Args:
+        state: Struggle state dictionary to validate
+
+    Returns:
+        Validated and normalized state dictionary
+
+    Raises:
+        ValueError: If state structure is invalid
+    """
+    validated = state.copy()
+
+    # Ensure required fields have defaults
+    if "edit_frequency" not in validated:
+        validated["edit_frequency"] = 0.0
+    if "error_logs" not in validated:
+        validated["error_logs"] = []
+    if "history" not in validated:
+        validated["history"] = []
+    if "is_struggling" not in validated:
+        validated["is_struggling"] = False
+    if "lesson_recommendation" not in validated:
+        validated["lesson_recommendation"] = None
+
+    # Validate types
+    if not isinstance(validated["edit_frequency"], int | float):
+        raise ValueError("edit_frequency must be a number")
+    if validated["edit_frequency"] < 0:
+        raise ValueError("edit_frequency must be non-negative")
+    if not isinstance(validated["error_logs"], list):
+        raise ValueError("error_logs must be a list")
+    if not isinstance(validated["history"], list):
+        raise ValueError("history must be a list")
+    if not isinstance(validated["is_struggling"], bool):
+        raise ValueError("is_struggling must be a boolean")
+    if validated["lesson_recommendation"] is not None and not isinstance(
+        validated["lesson_recommendation"], str
+    ):
+        raise ValueError("lesson_recommendation must be a string or None")
+
+    return validated
 
 
 def detect_struggle(state: StruggleState) -> StruggleState:
@@ -61,9 +113,65 @@ def detect_struggle(state: StruggleState) -> StruggleState:
     return {"is_struggling": is_struggling}
 
 
-def generate_lesson(state: StruggleState) -> StruggleState:
+async def _generate_lesson_with_llm(formatted_prompt: str) -> str:
+    """
+    Generate lesson recommendation using LLM with retry logic and error handling.
+
+    Args:
+        formatted_prompt: Formatted prompt with all context
+
+    Returns:
+        Generated lesson recommendation string
+    """
+    from core_py.ml.config import LLM_ENABLED
+    from core_py.ml.llm import invoke_llm_with_retry
+
+    if not LLM_ENABLED:
+        logger.debug("LLM is disabled, returning placeholder lesson")
+        return (
+            "Review the documentation on state management. "
+            "[Enable LLM_ENABLED=true to generate AI-powered lessons]"
+        )
+
+    try:
+        lesson = await invoke_llm_with_retry(formatted_prompt)
+
+        logger.info(
+            "Lesson generated with LLM",
+            extra={
+                "lesson_length": len(lesson),
+            },
+        )
+
+        return lesson
+
+    except RuntimeError as e:
+        # LLM disabled or quota/auth errors
+        logger.warning(f"LLM unavailable: {e}")
+        return "Review the documentation on state management. " f"[LLM unavailable: {str(e)[:100]}]"
+    except Exception as e:
+        logger.error(
+            "Failed to generate lesson with LLM",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+            exc_info=True,
+        )
+        # Fallback to placeholder
+        return (
+            "Review the documentation on state management. "
+            "[LLM generation failed, see logs for details]"
+        )
+
+
+async def generate_lesson(state: StruggleState) -> StruggleState:
     """
     Generates a lesson recommendation if struggling.
+
+    Uses prompt templates to generate personalized lesson recommendations.
+    The prompt template is loaded from markdown files and can be enhanced
+    with RAG context when the RAG pipeline is integrated.
 
     Args:
         state: Current workflow state with is_struggling flag
@@ -72,18 +180,59 @@ def generate_lesson(state: StruggleState) -> StruggleState:
         Updated state with lesson_recommendation if struggling
     """
     if state["is_struggling"]:
-        # TODO: In real app, query Vector DB for relevant content based on error patterns
-        lesson = "Review the documentation on state management."
+        try:
+            # Load the lesson generation prompt template
+            prompt_template = load_prompt("lesson_generation/lesson_generation_base")
 
-        logger.info(
-            "Lesson recommendation generated",
-            extra={
-                "is_struggling": True,
-                "has_recommendation": True,
-            },
-        )
+            # Prepare variables for the prompt
+            error_logs_str = "\n".join(f"- {error}" for error in state.get("error_logs", []))
+            history_str = "\n".join(f"- {item}" for item in state.get("history", [])) or "None"
 
-        return {"lesson_recommendation": lesson}
+            # Query RAG service for relevant context based on error patterns
+            rag_service = get_rag_service()
+            error_logs_list = state.get("error_logs", [])
+            rag_context = await rag_service.query_knowledge(
+                query=f"Help with errors: {', '.join(error_logs_list[:3])}",  # Use first 3 errors
+                error_patterns=error_logs_list,
+                top_k=RAG_TOP_K,
+            )
+
+            # Format the prompt with current state
+            formatted_prompt = prompt_template.format(
+                edit_frequency=state.get("edit_frequency", 0.0),
+                error_logs=error_logs_str,
+                history=history_str,
+                rag_context=rag_context,
+            )
+
+            # Log formatted prompt length for debugging
+            logger.debug(f"Formatted prompt length: {len(formatted_prompt)}")
+
+            # Call LLM to generate lesson recommendation
+            lesson = await _generate_lesson_with_llm(formatted_prompt)
+
+            logger.info(
+                "Lesson recommendation generated",
+                extra={
+                    "is_struggling": True,
+                    "has_recommendation": True,
+                    "prompt_loaded": True,
+                },
+            )
+
+            return {"lesson_recommendation": lesson}
+
+        except Exception as e:
+            logger.error(
+                "Failed to generate lesson recommendation",
+                extra={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                exc_info=True,
+            )
+            # Fallback to simple recommendation
+            return {"lesson_recommendation": "Review the documentation on state management."}
 
     logger.debug("No lesson needed - user is not struggling")
     return {"lesson_recommendation": None}

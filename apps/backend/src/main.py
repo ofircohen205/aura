@@ -19,6 +19,7 @@ from core.exceptions import (
     generic_exception_handler,
 )
 from core.logging import CorrelationIDMiddleware, RequestLoggingMiddleware, setup_logging
+from core.rate_limit import RateLimitMiddleware
 from db.database import async_engine, close_db, init_db
 
 # Initialize logging
@@ -45,6 +46,7 @@ app = FastAPI(
 
 # Add middleware (order matters - first added is outermost)
 app.add_middleware(CorrelationIDMiddleware)
+app.add_middleware(RateLimitMiddleware)  # Rate limiting before logging
 app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
@@ -87,3 +89,27 @@ async def health_check():
         raise HTTPException(
             status_code=503, detail="Service unavailable - database connection failed"
         ) from e
+
+
+@app.get("/health/cache")
+async def cache_health_check():
+    """
+    Health check endpoint for LLM cache statistics.
+
+    Returns:
+        dict: Cache statistics and health status
+    """
+    try:
+        from core_py.ml.cache import get_cache_stats
+
+        stats = await get_cache_stats()
+        return {
+            "status": "ok",
+            "cache": stats,
+        }
+    except Exception as e:
+        logger.error("Cache health check failed", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+        }

@@ -56,7 +56,13 @@ async def test_audit_graph_full_workflow_with_violations():
     graph = build_audit_graph(checkpointer=None)
 
     initial_state: AuditState = {
-        "diff_content": "def foo():\n    print('bad code')",
+        "diff_content": """--- a/src/file.py
++++ b/src/file.py
+@@ -1,3 +1,3 @@
+ def foo():
+-    pass
++    print('bad code')
+""",
         "violations": [],
         "status": "pending",
     }
@@ -67,6 +73,11 @@ async def test_audit_graph_full_workflow_with_violations():
     assert len(final_state["violations"]) > 0
     assert final_state["status"] == "fail"
     assert any("print" in v.lower() for v in final_state["violations"])
+    assert "violation_details" in final_state
+    assert len(final_state["violation_details"]) > 0
+    # Check parsed information is present
+    assert "parsed_files" in final_state
+    assert "parsed_hunks" in final_state
 
 
 @pytest.mark.asyncio
@@ -75,7 +86,13 @@ async def test_audit_graph_full_workflow_clean_code():
     graph = build_audit_graph(checkpointer=None)
 
     initial_state: AuditState = {
-        "diff_content": "def foo():\n    return 'clean code'",
+        "diff_content": """--- a/src/file.py
++++ b/src/file.py
+@@ -1,3 +1,3 @@
+ def foo():
+-    pass
++    return 'clean code'
+""",
         "violations": [],
         "status": "pending",
     }
@@ -85,3 +102,8 @@ async def test_audit_graph_full_workflow_clean_code():
 
     assert len(final_state["violations"]) == 0
     assert final_state["status"] == "pass"
+    assert "violation_details" in final_state
+    assert len(final_state["violation_details"]) == 0
+    # Check parsed information is present
+    assert "parsed_files" in final_state
+    assert "parsed_hunks" in final_state

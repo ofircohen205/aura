@@ -5,7 +5,7 @@ Role definition: `ai-coding-roles/roles/core-development/senior-software-enginee
 ## Core Platform & AI (SRS 4.1)
 
 - [ ] [Implement LangGraph workflows for "Struggle Detection" and "Code Audit"](stories/implement-langgraph-workflows.md)
-- [ ] [Set up RAG pipeline (ChromaDB ingestion) for "Golden Path" documentation](stories/setup-rag-pipeline.md)
+- [ ] [Set up RAG pipeline (pgvector/FAISS ingestion) for "Golden Path" documentation](stories/setup-rag-pipeline.md)
 - [ ] [Expose FastAPI endpoints for multi-client access](stories/expose-fastapi-endpoints.md)
 
 ## Client Engineering (SRS 4.2)

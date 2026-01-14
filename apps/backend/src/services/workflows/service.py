@@ -283,5 +283,8 @@ class WorkflowService:
             raise WorkflowServiceUnavailableError(str(e)) from e
 
 
-# Global service instance
+# Global service instance (singleton pattern)
+# NOTE: This singleton pattern is acceptable for stateless services like WorkflowService.
+# For production with dependency injection frameworks, consider using DI instead.
+# The service is stateless and thread-safe, so singleton is safe for concurrent requests.
 workflow_service = WorkflowService()
