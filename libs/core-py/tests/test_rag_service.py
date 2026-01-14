@@ -43,6 +43,7 @@ async def test_rag_service_initialize_pgvector():
             "VECTOR_STORE_TYPE": "pgvector",
             "PGVECTOR_CONNECTION_STRING": "postgresql://test:test@localhost:5432/test",
             "PGVECTOR_COLLECTION": "test_collection",
+            "OPENAI_API_KEY": "test-key",  # Mock API key
         },
     ):
         with patch(
@@ -50,18 +51,19 @@ async def test_rag_service_initialize_pgvector():
             "postgresql://test:test@localhost:5432/test",
         ):
             with patch("core_py.rag.service.VECTOR_STORE_TYPE", "pgvector"):
-                service = RagService(enabled=True)
-                try:
-                    await service._initialize_vector_store()
-                    # If initialization succeeds, vector_store should be set
-                    # If it fails (expected in test env), should raise appropriate error
-                except (ImportError, RuntimeError, ValueError) as e:
-                    # Expected in test environment without actual PostgreSQL
-                    assert (
-                        "pgvector" in str(e).lower()
-                        or "postgresql" in str(e).lower()
-                        or "import" in str(e).lower()
-                    )
+                with patch("langchain_openai.OpenAIEmbeddings"):
+                    service = RagService(enabled=True)
+                    try:
+                        await service._initialize_vector_store()
+                        # If initialization succeeds, vector_store should be set
+                        # If it fails (expected in test env), should raise appropriate error
+                    except (ImportError, RuntimeError, ValueError) as e:
+                        # Expected in test environment without actual PostgreSQL
+                        assert (
+                            "pgvector" in str(e).lower()
+                            or "postgresql" in str(e).lower()
+                            or "import" in str(e).lower()
+                        )
 
 
 @pytest.mark.asyncio
@@ -72,24 +74,28 @@ async def test_rag_service_initialize_faiss():
         {
             "VECTOR_STORE_TYPE": "faiss",
             "FAISS_INDEX_PATH": "./test_faiss_index",
+            "OPENAI_API_KEY": "test-key",  # Mock API key
         },
     ):
         with patch("core_py.rag.service.VECTOR_STORE_TYPE", "faiss"):
-            service = RagService(enabled=True)
-            try:
-                await service._initialize_vector_store()
-            except (ImportError, RuntimeError, ValueError) as e:
-                # Expected in test environment without FAISS properly set up
-                assert "faiss" in str(e).lower() or "import" in str(e).lower()
+            with patch("langchain_openai.OpenAIEmbeddings"):
+                service = RagService(enabled=True)
+                try:
+                    await service._initialize_vector_store()
+                except (ImportError, RuntimeError, ValueError) as e:
+                    # Expected in test environment without FAISS properly set up
+                    assert "faiss" in str(e).lower() or "import" in str(e).lower()
 
 
 @pytest.mark.asyncio
 async def test_rag_service_initialize_invalid_type():
     """Test initialization with invalid vector store type."""
-    with patch("core_py.rag.service.VECTOR_STORE_TYPE", "invalid_type"):
-        service = RagService(enabled=True)
-        with pytest.raises(ValueError, match="Unsupported vector store type"):
-            await service._initialize_vector_store()
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):  # Mock API key
+        with patch("core_py.rag.service.VECTOR_STORE_TYPE", "invalid_type"):
+            with patch("langchain_openai.OpenAIEmbeddings"):
+                service = RagService(enabled=True)
+                with pytest.raises(ValueError, match="Unsupported vector store type"):
+                    await service._initialize_vector_store()
 
 
 def test_rag_service_enhance_query():

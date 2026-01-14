@@ -102,13 +102,13 @@ def _parse_markdown_prompt(content: str) -> tuple[str | None, str]:
             current_section = "user"
             current_content = []
         elif line.startswith("#") and current_section:
-            # Another section header, save current section
-            if current_section == "system" and current_content:
-                system_message = "\n".join(current_content).strip()
-            elif current_section == "user" and current_content:
+            # Another section header after User Message - stop parsing
+            if current_section == "user" and current_content:
                 user_message = "\n".join(current_content).strip()
-            current_section = None
-            current_content = []
+            elif current_section == "system" and current_content:
+                system_message = "\n".join(current_content).strip()
+            # Stop parsing after User Message section
+            break
         elif current_section:
             current_content.append(line)
         elif not line.strip() and not current_content:

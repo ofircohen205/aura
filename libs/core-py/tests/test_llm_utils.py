@@ -71,9 +71,11 @@ async def test_invoke_llm_with_retry_success():
         mock_llm.ainvoke = AsyncMock(return_value=mock_response)
 
         with patch("core_py.ml.llm.get_llm_client", return_value=mock_llm):
-            result = await invoke_llm_with_retry("test prompt")
-            assert result == "Test response"
-            mock_llm.ainvoke.assert_called_once()
+            with patch("core_py.ml.cache.get_cached_response", return_value=None):
+                with patch("core_py.ml.cache.set_cached_response", new_callable=AsyncMock):
+                    result = await invoke_llm_with_retry("test prompt")
+                    assert result == "Test response"
+                    mock_llm.ainvoke.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -94,10 +96,12 @@ async def test_invoke_llm_with_retry_rate_limit():
         mock_llm.ainvoke = AsyncMock(side_effect=[rate_limit_error, mock_response])
 
         with patch("core_py.ml.llm.get_llm_client", return_value=mock_llm):
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await invoke_llm_with_retry("test prompt", max_retries=3)
-                assert result == "Success after retry"
-                assert mock_llm.ainvoke.call_count == 2
+            with patch("core_py.ml.cache.get_cached_response", return_value=None):
+                with patch("core_py.ml.cache.set_cached_response", new_callable=AsyncMock):
+                    with patch("asyncio.sleep", new_callable=AsyncMock):
+                        result = await invoke_llm_with_retry("test prompt", max_retries=3)
+                        assert result == "Success after retry"
+                        assert mock_llm.ainvoke.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -109,8 +113,9 @@ async def test_invoke_llm_with_retry_quota_exceeded():
         mock_llm.ainvoke = AsyncMock(side_effect=quota_error)
 
         with patch("core_py.ml.llm.get_llm_client", return_value=mock_llm):
-            with pytest.raises(RuntimeError, match="quota exceeded"):
-                await invoke_llm_with_retry("test prompt")
+            with patch("core_py.ml.cache.get_cached_response", return_value=None):
+                with pytest.raises(RuntimeError, match="quota exceeded"):
+                    await invoke_llm_with_retry("test prompt")
 
 
 @pytest.mark.asyncio
@@ -122,8 +127,9 @@ async def test_invoke_llm_with_retry_auth_error():
         mock_llm.ainvoke = AsyncMock(side_effect=auth_error)
 
         with patch("core_py.ml.llm.get_llm_client", return_value=mock_llm):
-            with pytest.raises(RuntimeError, match="authentication failed"):
-                await invoke_llm_with_retry("test prompt")
+            with patch("core_py.ml.cache.get_cached_response", return_value=None):
+                with pytest.raises(RuntimeError, match="authentication failed"):
+                    await invoke_llm_with_retry("test prompt")
 
 
 @pytest.mark.asyncio
@@ -136,12 +142,13 @@ async def test_invoke_llm_with_retry_max_retries_exceeded():
         mock_llm.ainvoke = AsyncMock(side_effect=generic_error)
 
         with patch("core_py.ml.llm.get_llm_client", return_value=mock_llm):
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                with pytest.raises(RuntimeError, match="failed after"):
-                    await invoke_llm_with_retry("test prompt", max_retries=2)
+            with patch("core_py.ml.cache.get_cached_response", return_value=None):
+                with patch("asyncio.sleep", new_callable=AsyncMock):
+                    with pytest.raises(RuntimeError, match="failed after"):
+                        await invoke_llm_with_retry("test prompt", max_retries=2)
 
-                # Should have tried max_retries + 1 times
-                assert mock_llm.ainvoke.call_count == 3
+                    # Should have tried max_retries + 1 times
+                    assert mock_llm.ainvoke.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -152,5 +159,7 @@ async def test_invoke_llm_with_retry_string_response():
         mock_llm.ainvoke = AsyncMock(return_value="String response")
 
         with patch("core_py.ml.llm.get_llm_client", return_value=mock_llm):
-            result = await invoke_llm_with_retry("test prompt")
-            assert result == "String response"
+            with patch("core_py.ml.cache.get_cached_response", return_value=None):
+                with patch("core_py.ml.cache.set_cached_response", new_callable=AsyncMock):
+                    result = await invoke_llm_with_retry("test prompt")
+                    assert result == "String response"

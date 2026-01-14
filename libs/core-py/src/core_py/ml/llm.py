@@ -159,7 +159,12 @@ async def invoke_llm_with_retry(
                 ) from e
 
             # Authentication errors - don't retry
-            if "auth" in error_message or "401" in error_message or "403" in error_message:
+            if (
+                "auth" in error_message
+                or "authentication" in error_message
+                or "401" in error_message
+                or "403" in error_message
+            ):
                 logger.error(
                     "LLM authentication failed, cannot retry",
                     extra={"error": error_type, "error_message": str(e)},
