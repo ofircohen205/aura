@@ -51,8 +51,8 @@ def _get_redis_client():
         return _redis_client
 
     try:
-        import redis.asyncio as redis
-        from redis.asyncio.connection import ConnectionPool
+        import redis.asyncio as redis  # type: ignore[import-untyped]
+        from redis.asyncio.connection import ConnectionPool  # type: ignore[import-untyped]
 
         pool = ConnectionPool.from_url(
             RATE_LIMIT_REDIS_URL,

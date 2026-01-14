@@ -81,5 +81,7 @@ module = [
     "langchain_openai.*",
     "langgraph.*",
     "langgraph_checkpoint_postgres.*",
+    "redis.*",
+    "redis.asyncio.*",
 ]
 ignore_missing_imports = true
