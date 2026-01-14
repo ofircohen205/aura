@@ -11,6 +11,9 @@ jobs:
   sync-linear:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Checkout code
