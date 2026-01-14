@@ -149,9 +149,9 @@ def parse_diff(state: AuditState) -> AuditState:
             extra={"diff_length": len(diff_content)},
         )
 
-    parsed_files = []
-    parsed_hunks = []
-    file_extensions = set()
+    parsed_files: list[dict[str, Any]] = []
+    parsed_hunks: list[dict[str, Any]] = []
+    file_extensions: set[str] = set()
     total_added = 0
     total_removed = 0
 
@@ -168,8 +168,8 @@ def parse_diff(state: AuditState) -> AuditState:
     current_new_path = None
     current_hunk = None
     in_hunk = False
-    hunk_added_lines = []
-    hunk_removed_lines = []
+    hunk_added_lines: list[str] = []
+    hunk_removed_lines: list[str] = []
 
     for line in lines:
         # Check for file header (--- or +++)

@@ -148,7 +148,7 @@ async def _generate_lesson_with_llm(formatted_prompt: str) -> str:
     except RuntimeError as e:
         # LLM disabled or quota/auth errors
         logger.warning(f"LLM unavailable: {e}")
-        return "Review the documentation on state management. " f"[LLM unavailable: {str(e)[:100]}]"
+        return f"Review the documentation on state management. [LLM unavailable: {str(e)[:100]}]"
     except Exception as e:
         logger.error(
             "Failed to generate lesson with LLM",

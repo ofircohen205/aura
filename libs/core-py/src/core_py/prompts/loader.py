@@ -55,7 +55,7 @@ def get_prompt_path(template_name: str) -> Path:
 
     if not prompt_path.exists():
         raise FileNotFoundError(
-            f"Prompt template not found: {template_name}.md\n" f"Searched in: {_PROMPTS_BASE_DIR}"
+            f"Prompt template not found: {template_name}.md\nSearched in: {_PROMPTS_BASE_DIR}"
         )
 
     return prompt_path
