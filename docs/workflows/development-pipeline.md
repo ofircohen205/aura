@@ -310,24 +310,33 @@ refactor(services): extract workflow logic to service layer [LIN-789]
 ### Commit Process
 
 ```bash
-# Stage changes
+# 1. Run CI checks before committing (recommended)
+just ci-check
+# Or for faster validation without tests/builds:
+just ci-check-fast
+
+# 2. Stage changes
 git add .
 
-# Commit with message
+# 3. Commit with message
 git commit -m "feat(api): add user authentication endpoint [LIN-123]"
 
-# Push to remote
+# 4. Push to remote
 git push origin feature/LIN-123-user-auth
 ```
 
+**Note**: The CI workflow runs automatically on all branch pushes, but running `just ci-check` before committing helps catch issues early and ensures your code will pass CI.
+
 ### Pre-commit Hooks
 
-Pre-commit hooks run automatically:
+Pre-commit hooks run automatically on commit:
 
 - Code formatting (ruff, prettier)
 - Linting (ruff, eslint)
 - Type checking (mypy, tsc)
 - Security checks (bandit)
+
+**CI Check Script**: For a comprehensive check that matches GitHub Actions CI, run `just ci-check` before committing. This runs the same checks as the CI pipeline locally.
 
 ---
 
@@ -428,6 +437,10 @@ just test-ts
 # Lint code (in Docker)
 just lint
 just lint-fix
+
+# Run CI checks (same as GitHub Actions CI)
+just ci-check
+just ci-check-fast  # Skip tests and builds for faster validation
 
 # Code review (in Docker)
 just code-review

@@ -125,6 +125,41 @@ Or on specific files:
 uv run pre-commit run --files path/to/file.py
 ```
 
+## CI Checks Before Committing
+
+Before committing, you should run the CI check script to ensure your code will pass GitHub Actions CI. This script runs the same checks as the CI pipeline locally.
+
+### Running CI Checks
+
+Run all CI checks (lint, type check, tests, and builds):
+
+```bash
+# Using the script directly
+./scripts/ci-check.sh
+
+# Or using just
+just ci-check
+```
+
+Run CI checks without tests and builds (faster for quick validation):
+
+```bash
+just ci-check-fast
+# or
+./scripts/ci-check.sh --skip-tests --skip-build
+```
+
+The CI check script runs:
+
+1. **Python lint and type check**: ruff lint, ruff format check, mypy
+2. **Python tests**: backend and core-py tests
+3. **Python build**: Builds all Python packages
+4. **TypeScript lint and type check**: ESLint and TypeScript type checking
+5. **TypeScript build**: Builds all TypeScript projects
+6. **TypeScript tests**: Runs all TypeScript tests
+
+**Note**: The CI workflow (`.github/workflows/ci.yml`) runs automatically on all branch pushes and pull requests, so running this script before committing helps catch issues early.
+
 ## Running Tests
 
 ### Python Tests
@@ -150,36 +185,61 @@ cd apps/web-dashboard && npm test
 
 ## CI/CD
 
-The project uses GitHub Actions for continuous integration. The CI pipeline:
+The project uses GitHub Actions for continuous integration. The main CI pipeline (`ci.yml`) runs:
 
-1. **Python CI** (`python-ci.yml`):
+1. **Python lint and type check**:
    - Lints Python code with ruff
    - Checks Python code formatting
    - Runs type checking with mypy
-   - Runs tests for backend and core-py
-   - Builds Python packages
 
-2. **TypeScript CI** (`typescript-ci.yml`):
+2. **Python tests**:
+   - Runs tests for backend and core-py
+
+3. **Python build**:
+   - Builds all Python packages (backend, core-py, CLI)
+
+4. **TypeScript lint and type check**:
    - Lints TypeScript/JavaScript code with ESLint
    - Runs TypeScript type checking
-   - Builds all TypeScript projects
-   - Runs tests
 
-3. **Pre-commit CI** (`pre-commit.yml`):
+5. **TypeScript build**:
+   - Builds all TypeScript projects (web-dashboard, vscode extension, github-app)
+
+6. **TypeScript tests**:
+   - Runs all TypeScript tests
+
+### CI Workflow Triggers
+
+The CI workflow (`.github/workflows/ci.yml`) runs automatically on:
+
+- **All branch pushes**: Enables testing before creating a PR
+- **Pull requests**: Runs when PRs are opened or updated
+- **New commits on PR branches**: Automatically runs when you push to a branch with an open PR
+
+### Running CI Checks Locally
+
+Before committing, run the CI check script to ensure your code will pass CI:
+
+```bash
+just ci-check
+```
+
+This runs the same checks as GitHub Actions CI locally. See [CI Checks Before Committing](#ci-checks-before-committing) for more details.
+
+### Other CI Workflows
+
+1. **Pre-commit CI** (`pre-commit.yml`):
    - Runs all pre-commit hooks to ensure code quality
-
-All workflows run automatically on:
-
-- Push to `main` or `develop` branches
-- Pull requests to `main` or `develop` branches
+   - Runs on pull requests and pushes to main/develop
 
 ## Best Practices
 
-1. **Always run pre-commit hooks before committing**: The hooks will catch most issues automatically
-2. **Fix linting issues locally**: Don't rely on CI to catch formatting issues
-3. **Run tests before pushing**: Ensure all tests pass locally
-4. **Keep dependencies up to date**: Regularly update Python and Node.js dependencies
-5. **Follow the code style**: The linters and formatters enforce consistent code style
+1. **Run CI checks before committing**: Use `just ci-check` to run the same checks as GitHub Actions CI locally
+2. **Always run pre-commit hooks before committing**: The hooks will catch most issues automatically
+3. **Fix linting issues locally**: Don't rely on CI to catch formatting issues
+4. **Run tests before pushing**: Ensure all tests pass locally
+5. **Keep dependencies up to date**: Regularly update Python and Node.js dependencies
+6. **Follow the code style**: The linters and formatters enforce consistent code style
 
 ## Troubleshooting
 

@@ -43,6 +43,12 @@ just lint
 # Auto-fix linting issues
 just lint-fix
 
+# Run CI checks (same as GitHub Actions)
+just ci-check
+
+# Run CI checks without tests/builds (faster)
+just ci-check-fast
+
 # Run code review checks
 just code-review
 

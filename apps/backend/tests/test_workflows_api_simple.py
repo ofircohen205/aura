@@ -17,10 +17,10 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # Import conf first to set up paths
-import conf  # noqa: F401
+import conf  # noqa: F401, E402
 
 # Import router directly
-from backend.routers.workflows import router
+from backend.routers.workflows import router  # noqa: E402
 
 # Create a test app with just the workflows router
 test_app = FastAPI()

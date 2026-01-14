@@ -17,8 +17,8 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # Import conf first to set up paths
-import conf  # noqa: F401
-from main import app
+import conf  # noqa: F401, E402
+from main import app  # noqa: E402
 
 
 @pytest.mark.asyncio

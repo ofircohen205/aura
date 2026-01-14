@@ -194,8 +194,8 @@ def get_settings() -> Settings:
         env = Environment.LOCAL
 
     # Load env vars from file if it exists (Pydantic will merge with env vars)
-    env_file = env.get_env_file()
-    env_file = env_file if os.path.exists(env_file) else None
+    env_file: str | None = env.get_env_file()
+    env_file = env_file if env_file and os.path.exists(env_file) else None
 
     return Settings(
         _env_file=env_file,

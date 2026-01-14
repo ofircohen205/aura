@@ -122,6 +122,15 @@ lint-fix:
 pre-commit-all:
     docker-compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run pre-commit run --all-files"
 
+# Run CI checks locally (same as GitHub Actions CI)
+# Usage: just ci-check [--skip-tests] [--skip-build]
+ci-check:
+    @bash scripts/ci-check.sh
+
+# Run CI checks without tests (faster for quick validation)
+ci-check-fast:
+    @bash scripts/ci-check.sh --skip-tests --skip-build
+
 # Run code quality checks (lint + test)
 quality-check:
     @echo "Running quality checks..."

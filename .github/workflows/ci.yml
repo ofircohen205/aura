@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    # Run CI on all branch pushes to enable testing before PR creation
+    # and when committing on branches with open PRs
   pull_request:
     branches: [main, develop]
+    # pull_request trigger automatically includes 'synchronize' events
+    # which run CI when new commits are pushed to branches with open PRs
 
 jobs:
   python-lint-and-type-check:

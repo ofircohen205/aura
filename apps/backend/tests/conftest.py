@@ -16,8 +16,8 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # Import conf first to set up paths
-import conf  # noqa: F401
-from main import app
+import conf  # noqa: F401, E402
+from main import app  # noqa: E402
 
 # Note: Full async database testing requires aiosqlite and proper SQLModel async support
 # For now, we'll use mocks for database-dependent tests

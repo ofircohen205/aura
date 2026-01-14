@@ -10,6 +10,7 @@ import sys
 import time
 import uuid
 from collections.abc import Callable
+from types import FrameType
 
 from fastapi import Request, Response
 from loguru import logger
@@ -30,7 +31,8 @@ class InterceptHandler(logging.Handler):
         except ValueError:
             level = str(record.levelno)
 
-        frame, depth = sys._getframe(6), 6
+        frame: FrameType | None = sys._getframe(6)
+        depth = 6
         while frame and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
             depth += 1
