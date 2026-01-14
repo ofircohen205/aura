@@ -11,13 +11,13 @@ dependencies = [
     "langchain>=1.2.3",
     "langchain-openai>=1.1.7",
     "langchain-community>=0.3.0",
-    "langchain-pgvector>=0.1.0",
     "langgraph>=1.0.6",
     "langgraph-checkpoint-postgres>=3.0.3",
     "psycopg-pool>=3.3.0",
     "pgvector>=0.3.0",
     "faiss-cpu>=1.7.4",
     "redis>=5.0.0",
+    "types-redis>=4.6.0",
     "pytest>=9.0.2",
     "pytest-asyncio>=0.24.0",
 ]
@@ -58,7 +58,7 @@ indent-style = "space"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Allow unused imports in __init__.py
-"tests/**/*.py" = ["ARG", "S101"]  # Allow unused args and assert in tests
+"tests/**/*.py" = ["ARG", "S101", "SIM117"]  # Allow unused args, assert, and nested with in tests
 
 [tool.mypy]
 python_version = "3.13"
@@ -83,5 +83,7 @@ module = [
     "langchain_openai.*",
     "langgraph.*",
     "langgraph_checkpoint_postgres.*",
+    "redis.*",
+    "redis.asyncio.*",
 ]
 ignore_missing_imports = true

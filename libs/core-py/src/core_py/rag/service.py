@@ -179,7 +179,7 @@ class RagService:
     async def _initialize_pgvector(self) -> None:
         """Initialize pgvector (PostgreSQL extension) vector store."""
         try:
-            from langchain_pgvector import PGVector
+            from langchain_community.vectorstores import PGVector
 
             self._vector_store = PGVector(
                 connection=PGVECTOR_CONNECTION_STRING,
