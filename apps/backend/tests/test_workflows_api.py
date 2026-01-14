@@ -5,6 +5,7 @@ For full integration with database, run tests in Docker environment.
 """
 
 import sys
+import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -24,8 +25,8 @@ from main import app  # noqa: E402
 @pytest.mark.asyncio
 async def test_trigger_struggle_workflow():
     """Test triggering the struggle workflow via API."""
-    # Mock the checkpointer to avoid database dependency
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    # Mock the checkpointer at the source to avoid database dependency
+    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None  # Use None checkpointer
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
@@ -47,7 +48,7 @@ async def test_trigger_struggle_workflow():
 @pytest.mark.asyncio
 async def test_trigger_struggle_workflow_not_struggling():
     """Test triggering the struggle workflow when user is not struggling."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
@@ -69,7 +70,7 @@ async def test_trigger_struggle_workflow_not_struggling():
 @pytest.mark.asyncio
 async def test_trigger_audit_workflow_with_violations():
     """Test triggering the audit workflow with code violations."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
@@ -91,7 +92,7 @@ async def test_trigger_audit_workflow_with_violations():
 @pytest.mark.asyncio
 async def test_trigger_audit_workflow_clean_code():
     """Test triggering the audit workflow with clean code."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
@@ -113,7 +114,10 @@ async def test_trigger_audit_workflow_clean_code():
 @pytest.mark.asyncio
 async def test_get_workflow_state_without_db():
     """Test getting workflow state (will return 404 without database)."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    # Use a valid UUID format for the test
+    non_existent_thread_id = str(uuid.uuid4())
+
+    with patch("core_py.workflows.checkpointer.get_checkpointer") as mock_get_checkpointer:
         # Mock checkpointer to return None (no checkpoint found)
         mock_checkpointer_instance = AsyncMock()
         mock_checkpointer_instance.aget.return_value = None
@@ -123,7 +127,7 @@ async def test_get_workflow_state_without_db():
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"
         ) as ac:
-            response = await ac.get("/api/v1/workflows/workflows/non-existent-thread-id")
+            response = await ac.get(f"/api/v1/workflows/workflows/{non_existent_thread_id}")
 
         # Without database, checkpoint won't be found
         assert response.status_code == 404
