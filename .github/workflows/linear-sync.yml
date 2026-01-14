@@ -18,25 +18,31 @@ jobs:
 
       - name: Extract Linear Issue ID
         id: extract_issue
-        run: |
-          PR_BODY="${{ github.event.pull_request.body }}"
-          # Safely extract Linear issue ID from PR body
-          ISSUE_ID=$(echo "${PR_BODY:-}" | grep -oE 'AURA-[0-9]+' | head -1 || echo "")
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Safely extract Linear issue ID from PR body using JavaScript
+            // This avoids shell interpretation of file paths or special characters
+            const prBody = context.payload.pull_request.body || '';
+            const branchName = context.payload.pull_request.head.ref || '';
 
-          if [ -z "$ISSUE_ID" ]; then
-            # Try to extract from branch name
-            BRANCH_NAME="${{ github.head_ref }}"
-            ISSUE_ID=$(echo "$BRANCH_NAME" | grep -oE 'AURA-[0-9]+' | head -1 || echo "")
-          fi
+            // Extract AURA-XXX pattern from PR body
+            const bodyMatch = prBody.match(/AURA-\d+/);
+            let issueId = bodyMatch ? bodyMatch[0] : null;
 
-          if [ -z "$ISSUE_ID" ]; then
-            echo "No Linear issue ID found in PR body or branch name"
-            echo "issue_id=" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+            // If not found in body, try branch name
+            if (!issueId) {
+              const branchMatch = branchName.match(/AURA-\d+/);
+              issueId = branchMatch ? branchMatch[0] : null;
+            }
 
-          echo "issue_id=$ISSUE_ID" >> $GITHUB_OUTPUT
-          echo "Found Linear issue: $ISSUE_ID"
+            if (issueId) {
+              core.setOutput('issue_id', issueId);
+              console.log(`Found Linear issue: ${issueId}`);
+            } else {
+              core.setOutput('issue_id', '');
+              console.log('No Linear issue ID found in PR body or branch name');
+            }
 
       - name: Update Linear Issue Status
         if: steps.extract_issue.outputs.issue_id != ''
@@ -56,12 +62,25 @@ jobs:
             LINEAR_STATUS="In Progress"
           fi
 
-          echo "Updating Linear issue $ISSUE_ID to status: $LINEAR_STATUS"
-          echo "Note: This requires Linear API integration."
-          echo "For now, manually update the issue status in Linear."
-          echo ""
-          echo "To enable automatic updates, add LINEAR_API_KEY to GitHub secrets"
-          echo "and implement Linear API calls here."
+          if [ -n "$LINEAR_API_KEY" ]; then
+            echo "Updating Linear issue $ISSUE_ID to status: $LINEAR_STATUS"
+            echo "Note: Linear API integration not yet implemented."
+            echo "To implement, add GraphQL mutations here using the LINEAR_API_KEY."
+          else
+            echo "Linear issue: $ISSUE_ID"
+            echo "Suggested status: $LINEAR_STATUS"
+            echo ""
+            echo "ℹ️  No LINEAR_API_KEY found. The workflow will still:"
+            echo "   - Extract and display the issue ID"
+            echo "   - Comment on the PR with a link"
+            echo ""
+            echo "To enable automatic status updates:"
+            echo "  1. Get your Linear API key from: https://linear.app/settings/api"
+            echo "  2. Add it to GitHub Secrets as LINEAR_API_KEY"
+            echo ""
+            echo "Note: Personal Linear-GitHub integration doesn't automatically"
+            echo "      give GitHub Actions access. You need a separate API key."
+          fi
 
       - name: Comment on PR
         if: steps.extract_issue.outputs.issue_id != ''
