@@ -52,18 +52,10 @@ def setup_logging() -> None:
 
     # Configure log format based on environment
     if settings.log_format == "json":
-        # JSON format for production (structured logging)
-        log_format = (
-            "{"
-            '"time": "{time:YYYY-MM-DD HH:mm:ss.SSS}", '
-            '"level": "{level}", '
-            '"message": "{message}", '
-            '"module": "{module}", '
-            '"function": "{function}", '
-            '"line": {line}, '
-            '"extra": {extra}'
-            "}"
-        )
+        # When serialize=True, loguru automatically outputs JSON
+        # We use a simple format string - loguru will serialize it to JSON
+        # The format should use loguru's syntax, not literal JSON
+        log_format = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {name}:{function}:{line} | {message} | {extra}"
     else:
         # Text format for local development (human-readable)
         log_format = (
@@ -74,6 +66,8 @@ def setup_logging() -> None:
         )
 
     # Add console handler with configured format
+    # When serialize=True, loguru will automatically convert the format to JSON
+    # When serialize=False, it uses the format string as-is with colorization
     logger.add(
         sys.stderr,
         format=log_format,

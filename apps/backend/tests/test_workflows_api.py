@@ -25,7 +25,7 @@ from main import app  # noqa: E402
 async def test_trigger_struggle_workflow():
     """Test triggering the struggle workflow via API."""
     # Mock the checkpointer to avoid database dependency
-    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
+    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None  # Use None checkpointer
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
