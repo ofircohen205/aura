@@ -3,9 +3,10 @@
 ### Layer Structure
 
 1. **Core Layer** (`src/core/`)
-   - Configuration management (config.py): fetches values from .env.local/staging/production and creates a global configuration object
-   - Security utilities (security.py): JWT, password hashing
-   - Timezone utilities (timezone.py): instead of datetime.now(), we use Asia/Jerusalem timezone
+   - Configuration management (config.py): Uses Pydantic Settings to fetch values from .env.local/staging/production and creates a global configuration object
+   - Exception handling (exceptions.py): Base exception classes and HTTP exception mapping utilities
+   - Logging infrastructure (logging.py): Structured logging with loguru, request/response middleware, and correlation IDs
+   - Security utilities (security.py): JWT utilities (placeholder for future auth), password hashing functions
 
 2. **Database Layer** (`src/db/`)
    - SQLModel/ORM models (each DB table will have its own python file under `models` directory)
@@ -18,38 +19,50 @@
    - Each DB table has its own class (inherits BaseDAO), must implement base queries, can add specific queries.
 
 4. **Service Layer** (`src/services/`)
-   - Business logic
-   - Integration with external services (for example OpenAI client)
+   - Business logic extraction from API endpoints
+   - Integration with external services (for example OpenAI client, LangGraph workflows)
    - Orchestration of multiple operations
-   - DAO Layer wrapper - for each DB table there will be a dedicated folder and under it 3 files:
+   - Service-specific exception handling
+   - Current service modules:
      ```text
-     ├── services/                
-     │   ├── users/
+     ├── services/
+     │   ├── workflows/
      │   │   ├── __init__.py
      │   │   ├── exceptions.py
      │   │   ├── service.py
-     .
-     .
-     .
+     │   ├── events/
+     │   │   ├── __init__.py
+     │   │   ├── exceptions.py
+     │   │   ├── service.py
+     │   ├── audit/
+     │   │   ├── __init__.py
+     │   │   ├── exceptions.py
+     │   │   ├── service.py
      ```
 
 5. **API Layer** (`src/api/`)
-   - FastAPI endpoints (with versioning)
+   - FastAPI sub-applications (with versioning)
    - Request/response validation (Pydantic schemas)
-   - Authentication & authorization
-   - Current user handling for dependency injection in API (dependencies.py -> CurrentUser)
-   - Exceptions from Service Layer are translated into HTTP Exceptions
-   - Folder structure for example):
+   - Exception handlers for each sub-application
+   - Service layer integration
+   - Current API structure:
      ```text
-     ├── v1/                
-     │   ├── users/
+     ├── v1/
+     │   ├── workflows/
      │   │   ├── __init__.py
      │   │   ├── endpoints.py
      │   │   ├── exceptions.py
      │   │   ├── schemas.py
-     .
-     .
-     .
+     │   ├── events/
+     │   │   ├── __init__.py
+     │   │   ├── endpoints.py
+     │   │   ├── exceptions.py
+     │   │   ├── schemas.py
+     │   ├── audit/
+     │   │   ├── __init__.py
+     │   │   ├── endpoints.py
+     │   │   ├── exceptions.py
+     │   │   ├── schemas.py
      ```
 
 6. **Jobs Layer** (`src/jobs/`)
@@ -74,19 +87,21 @@
    - utils/: Contains pure helper functions for common tasks like date formatting, currency conversion, or string manipulation that have no side effects.
 3. **Features** (`src/features/`): Self-contained feature modules
    - Folder structure for an example feature:
-    ```text              
-    ├── example/
-    │   ├── components/
-    │   ├── hooks/
-    │   ├── pages/
-    │   ├── services/
-    │   ├── stores/
-    │   ├── types/
-    │   ├── index.ts
-    .
-    .
-    .
-    ```
+
+   ```text
+   ├── example/
+   │   ├── components/
+   │   ├── hooks/
+   │   ├── pages/
+   │   ├── services/
+   │   ├── stores/
+   │   ├── types/
+   │   ├── index.ts
+   .
+   .
+   .
+   ```
+
    - components: Contains the reusable, presentational UI elements (like buttons or forms) specific to this feature that receive data and render views.
    - hooks: Encapsulates reusable logic and complex behavior to separate calculations from the visual UI components.
    - pages: Serves as the main route entry points (screens) that compose the smaller components together and connect them to data.
@@ -94,8 +109,9 @@
    - stores: Manages the feature's shared state and business logic, ensuring data remains consistent across different components.
    - types: Defines the TypeScript interfaces and data models (contracts) to ensure type safety throughout the feature.
    - index.ts: Acts as the public "gatekeeper" that exports only the necessary parts of the feature to the rest of the app, keeping internal details private.
+
 4. **layouts** (`src/layouts`): Defines the structural templates (such as Sidebars, Headers, or AuthWrappers) that wrap around page content to maintain a consistent UI across the application.
-4. **assets** (`src/assets`): Stores static resources such as images, icons, fonts, and global stylesheets that are imported into components or compiled with the build.
+5. **assets** (`src/assets`): Stores static resources such as images, icons, fonts, and global stylesheets that are imported into components or compiled with the build.
 
 ### State Management
 

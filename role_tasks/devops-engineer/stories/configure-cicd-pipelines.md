@@ -1,5 +1,7 @@
 # Story: Configure CI/CD Pipelines
 
+**GitHub Issue**: #7
+
 **Role:** DevOps Engineer
 **Related SRS Section:** 4.3
 
@@ -18,6 +20,11 @@ We have 4 distinct artifacts (Extension, CLI, Probot App, Dashboard) that need a
   - `cli`: Publish to PyPI (internal/public).
   - `backend`: Docker build -> Registry (ECR/GHCR).
   - `web`: Vercel Deployment.
+
+### Standards & Workflows
+
+- **Git Flow**: Create a new branch for this story and work only on that branch.
+- **Issue Updates**: Reference the GitHub Issue (check header) in your commits and PRs.
 
 ### Implementation Checklist
 

@@ -1,5 +1,7 @@
 # Story: Ensure PII/Secrets Scrubbing and Security Policies
 
+**GitHub Issue**: #8
+
 **Role:** Security Engineer
 **Related SRS Section:** 4.3
 
@@ -14,6 +16,11 @@ Before any code diff is sent to the Cloud Backend (or LLM), it must be scrubbed 
 - **Tooling**: `trufflehog` or `gitleaks` (for secret detection), `presidio` (Microsoft, for PII).
 - **Integration Point**: The Python CLI (before sending payload) and the Backend (double-check).
 - **Policy**: "Code Audit" workflow must flag any `subprocess.call` or SQL Injection risks.
+
+### Standards & Workflows
+
+- **Git Flow**: Create a new branch for this story and work only on that branch.
+- **Issue Updates**: Reference the GitHub Issue (check header) in your commits and PRs.
 
 ### Implementation Checklist
 

@@ -15,6 +15,10 @@ The Knowledge Dashboard (Next.js) and the GitHub Architect App (Probot) need to 
 - **GitHub App**: Vercel (Serverless functions) or AWS Lambda (if long-running tasks needed, though SRS mentions Redis for rate limits, suggesting stateful/worker needs).
 - **Environment Management**: Separation of `staging` and `production`.
 
+### Standards & Workflows
+
+- **Git Flow**: Create a new branch for this story and work only on that branch.
+
 ### Implementation Checklist
 
 - [ ] Connect GitHub Repo to Vercel.

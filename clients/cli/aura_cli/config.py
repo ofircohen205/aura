@@ -1,13 +1,14 @@
+from pathlib import Path
 
 import yaml
-from pathlib import Path
 from pydantic import BaseModel
-import os
+
 
 class AuraConfig(BaseModel):
     version: str = "0.1.0"
     api_url: str = "http://localhost:8000"
     api_key: str | None = None
+
 
 class ConfigManager:
     def __init__(self):
@@ -25,12 +26,13 @@ class ConfigManager:
     def load(self) -> AuraConfig:
         if not self.config_file.exists():
             return AuraConfig()
-        with open(self.config_file, "r") as f:
+        with open(self.config_file) as f:
             data = yaml.safe_load(f) or {}
             return AuraConfig(**data)
 
     def save(self, config: AuraConfig):
         with open(self.config_file, "w") as f:
             yaml.dump(config.model_dump(), f)
+
 
 config_manager = ConfigManager()

@@ -1,34 +1,34 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
 export class LessonPanel implements vscode.WebviewViewProvider {
-    public static readonly viewType = 'aura.lessonPanel';
-    private _view?: vscode.WebviewView;
+  public static readonly viewType = "aura.lessonPanel";
+  private _view?: vscode.WebviewView;
 
-    constructor() { }
+  constructor() {}
 
-    public resolveWebviewView(
-        webviewView: vscode.WebviewView,
-        context: vscode.WebviewViewResolveContext,
-        _token: vscode.CancellationToken,
-    ) {
-        this._view = webviewView;
+  public resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken
+  ) {
+    this._view = webviewView;
 
-        webviewView.webview.options = {
-            enableScripts: true,
-            localResourceRoots: []
-        };
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [],
+    };
 
-        webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+  }
+
+  public showLesson(content: string) {
+    if (this._view) {
+      this._view.webview.postMessage({ type: "showLesson", content: content });
     }
+  }
 
-    public showLesson(content: string) {
-        if (this._view) {
-            this._view.webview.postMessage({ type: 'showLesson', content: content });
-        }
-    }
-
-    private _getHtmlForWebview(webview: vscode.Webview) {
-        return `<!DOCTYPE html>
+  private _getHtmlForWebview(webview: vscode.Webview) {
+    return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
@@ -57,5 +57,5 @@ export class LessonPanel implements vscode.WebviewViewProvider {
                 </script>
 			</body>
 			</html>`;
-    }
+  }
 }

@@ -14,4 +14,8 @@ cli = { workspace = true, editable = true }
 [dependency-groups]
 dev = [
     "cli",
+    "ruff>=0.6.4",
+    "mypy>=1.11.2",
+    "pre-commit>=3.7.0",
+    "bandit>=1.7.8",
 ]

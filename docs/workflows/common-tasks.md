@@ -8,7 +8,7 @@ The backend follows a layered architecture. You must add files in the specific o
 
 1. **Define Database Model** (`src/db/models/example.py`)
 
-   *Create the SQLAlchemy/SQLModel definition.*
+   _Create the SQLAlchemy/SQLModel definition._
 
 ```python
 # src/db/models/example.py
@@ -26,7 +26,7 @@ class Example(SQLModel, table=True):
 
 2. **Create DAO** (`src/dao/example.py`)
 
-   *Inherit from `BaseDAO` to get standard CRUD operations automatically.*
+   _Inherit from `BaseDAO` to get standard CRUD operations automatically._
 
 ```python
 # src/dao/example.py
@@ -43,7 +43,7 @@ example_dao = ExampleDAO(Example)
 
 3. **Create Service & Business Exceptions** (`src/services/example/`)
 
-   *Define pure Python exceptions for business logic, then implement the service.*
+   _Define pure Python exceptions for business logic, then implement the service._
 
    **A. Define Exceptions** (`src/services/example/exceptions.py`)
 
@@ -84,9 +84,9 @@ class ExampleService:
         existing = await example_dao.get_by_name(session, data.name)
         if existing:
             raise ExampleAlreadyExistsError(data.name)
-            
+
         return await example_dao.create(session, data)
-    
+
     async def get_example(self, session, example_id: str):
         example = await example_dao.get_by_id(session, example_id)
         if not example:
@@ -98,11 +98,11 @@ service = ExampleService()
 
 4. **Create API Layer** (`src/api/v1/example/`)
 
-   *Create a folder `src/api/v1/example/` containing schemas, HTTP exceptions, and endpoints. Each API module uses a FastAPI sub-application pattern.*
+   _Create a folder `src/api/v1/example/` containing schemas, HTTP exceptions, and endpoints. Each API module uses a FastAPI sub-application pattern._
 
    **A. Schemas** (`src/api/v1/example/schemas.py`)
 
-   *Define Pydantic models for request/response validation.*
+   _Define Pydantic models for request/response validation._
 
 ```python
 # src/api/v1/example/schemas.py
@@ -154,7 +154,7 @@ class ExampleResponse(ExampleBase):
 
 **B. Exception Handlers** (`src/api/v1/example/exceptions.py`)
 
-*Define a function to register exception handlers for the sub-application. This converts service exceptions to HTTP responses.*
+_Define a function to register exception handlers for the sub-application. This converts service exceptions to HTTP responses._
 
 ```python
 # src/api/v1/example/exceptions.py
@@ -216,7 +216,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
 **C. Endpoints** (`src/api/v1/example/endpoints.py`)
 
-*Create the router and sub-application factory function. Each API module is a separate FastAPI sub-application.*
+_Create the router and sub-application factory function. Each API module is a separate FastAPI sub-application._
 
 ```python
 # src/api/v1/example/endpoints.py
@@ -258,7 +258,7 @@ async def create_example(
 ) -> ExampleResponse:
     """
     Create a new example item.
-    
+
     Note: No try/except block needed here. The exception handlers
     registered in register_exception_handlers() will catch service
     exceptions and convert them to appropriate HTTP responses.
@@ -310,7 +310,7 @@ async def update_example(
 
 5. **Register Sub-Application** (`src/main.py`)
 
-   *Mount the sub-application in the main FastAPI app. Each module is mounted as a separate sub-application at a specific path.*
+   _Mount the sub-application in the main FastAPI app. Each module is mounted as a separate sub-application at a specific path._
 
 ```python
 # src/main.py
@@ -329,6 +329,7 @@ app.mount("/api/v1/examples", example_app)
 ```
 
 **Key Points:**
+
 - Each API module is a **separate FastAPI sub-application**, not just a router
 - Exception handlers are registered per sub-application via `register_exception_handlers()`
 - Sub-applications are **mounted** (not included) in the main app using `app.mount()`
@@ -365,7 +366,9 @@ export interface ExampleItem {
 import { apiClient } from "@/core/api/client";
 import { ExampleItem } from "../types";
 
-export const createExample = async (data: Omit<ExampleItem, 'id' | 'created_at' | 'updated_at'>) => {
+export const createExample = async (
+  data: Omit<ExampleItem, "id" | "created_at" | "updated_at">
+) => {
   const response = await apiClient.post<ExampleItem>("/examples/", data);
   return response.data;
 };
@@ -380,7 +383,10 @@ export const getExample = async (id: string): Promise<ExampleItem> => {
   return response.data;
 };
 
-export const updateExample = async (id: string, data: Partial<ExampleItem>): Promise<ExampleItem> => {
+export const updateExample = async (
+  id: string,
+  data: Partial<ExampleItem>
+): Promise<ExampleItem> => {
   const response = await apiClient.put<ExampleItem>(`/examples/${id}/`, data);
   return response.data;
 };
@@ -443,7 +449,7 @@ export const ExamplePage = () => {
 
 6. **Export Feature** (`src/features/example/index.ts`)
 
-   *Act as the "Public API" for this feature.*
+   _Act as the "Public API" for this feature._
 
 ```typescript
 // src/features/example/index.ts
@@ -511,20 +517,20 @@ app.add_typer(example.app, name="example")
 2. **Implement Logic** (`clients/vscode/src/commands/example.ts`)
 
 ```typescript
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
 export const exampleCommand = () => {
-  vscode.window.showInformationMessage('Hello from Aura!');
+  vscode.window.showInformationMessage("Hello from Aura!");
 };
 ```
 
 3. **Register in Extension** (`clients/vscode/src/extension.ts`)
 
 ```typescript
-import { exampleCommand } from './commands/example';
+import { exampleCommand } from "./commands/example";
 
 export function activate(context: vscode.ExtensionContext) {
-  let disposable = vscode.commands.registerCommand('aura.example', exampleCommand);
+  let disposable = vscode.commands.registerCommand("aura.example", exampleCommand);
   context.subscriptions.push(disposable);
 }
 ```

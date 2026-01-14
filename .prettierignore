@@ -1,0 +1,9 @@
+node_modules/
+out/
+dist/
+build/
+*.lock
+package-lock.json
+uv.lock
+.next/
+.vscode-test/

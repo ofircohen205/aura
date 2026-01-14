@@ -7,6 +7,7 @@
 **Format**: `<type>/<scope>-<short-description>`
 
 **Types**:
+
 - `feature/` - New features
 - `fix/` - Bug fixes
 - `hotfix/` - Critical production fixes
@@ -124,6 +125,7 @@ git push origin --tags
 **2. Create a GitHub Release**:
 
 **Via GitHub Web Interface**:
+
 1. Navigate to your repository on GitHub
 2. Click on "Releases" in the right sidebar (or go to `https://github.com/[OWNER]/[REPO]/releases`)
 3. Click "Draft a new release"
@@ -149,11 +151,13 @@ gh release create v1.2.0 --title "Release v1.2.0" --notes "Notes" --draft
 ```
 
 **Tag Naming Convention**:
+
 - Follow semantic versioning: `v1.2.3` (major.minor.patch)
 - Use lowercase 'v' prefix
 - Examples: `v1.0.0`, `v1.1.0`, `v2.0.0`, `v1.2.3`
 
 **Best Practices**:
+
 - Always create tags from the `main` branch
 - Use annotated tags (`-a` flag) for releases as they include metadata
 - Include release notes describing what changed
@@ -218,6 +222,7 @@ pre-commit run --all-files
 ### Backend (Python)
 
 For each function you are writing, write a Docstring with:
+
 - Description explaining what the function does
 - Arguments (name, type, description)
 - Return value + type
@@ -236,6 +241,7 @@ def hash_password(password: str) -> str:
 ```
 
 For a customized exception add:
+
 1. message (short error message)
 2. operation (the function where it failed)
 3. details (extra info)
@@ -253,6 +259,7 @@ class AzureOCRError(Exception):
 ```
 
 usage:
+
 ```bash
  message = (
     f"Azure Computer Vision Image Analysis failed for page {page_num}: {error_msg}. "
@@ -328,12 +335,14 @@ npm test -- --watch
 ## Code Review Guidelines
 
 **As a Reviewer:**
+
 - Be constructive and respectful
 - Focus on code quality, not personal preferences
 - Approve if code meets standards and tests pass
 - Request changes if there are issues
 
 **As an Author:**
+
 - Respond to all comments
 - Make requested changes or explain why not
 - Update PR description if significant changes made

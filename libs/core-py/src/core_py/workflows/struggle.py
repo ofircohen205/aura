@@ -5,47 +5,48 @@ This module implements a LangGraph workflow for detecting when a user is struggl
 based on edit frequency and error patterns. When struggling is detected, it generates
 a lesson recommendation.
 """
-import os
+
 import logging
-from typing import TypedDict, List, Optional
-from langgraph.graph import StateGraph, END
+import os
+from typing import TypedDict
+
+from langgraph.graph import END, StateGraph
 
 logger = logging.getLogger(__name__)
 
 # Configurable thresholds via environment variables
-STRUGGLE_THRESHOLD_EDIT_FREQUENCY = float(
-    os.getenv("STRUGGLE_THRESHOLD_EDIT_FREQUENCY", "10.0")
-)
-STRUGGLE_THRESHOLD_ERROR_COUNT = int(
-    os.getenv("STRUGGLE_THRESHOLD_ERROR_COUNT", "2")
-)
+STRUGGLE_THRESHOLD_EDIT_FREQUENCY = float(os.getenv("STRUGGLE_THRESHOLD_EDIT_FREQUENCY", "10.0"))
+STRUGGLE_THRESHOLD_ERROR_COUNT = int(os.getenv("STRUGGLE_THRESHOLD_ERROR_COUNT", "2"))
 
-class StruggleState(TypedDict):
+
+class StruggleState(TypedDict, total=False):
     """State for the Struggle Detection Workflow."""
+
     edit_frequency: float
-    error_logs: List[str]
-    history: List[str]
+    error_logs: list[str]
+    history: list[str]
     is_struggling: bool
-    lesson_recommendation: Optional[str]
+    lesson_recommendation: str | None
+
 
 def detect_struggle(state: StruggleState) -> StruggleState:
     """
     Analyzes input metrics to detect if the user is struggling.
-    
+
     Args:
         state: Current workflow state containing edit frequency and error logs
-        
+
     Returns:
         Updated state with is_struggling flag set
     """
     edit_freq = state["edit_frequency"]
     error_count = len(state["error_logs"])
-    
+
     is_struggling = (
-        edit_freq > STRUGGLE_THRESHOLD_EDIT_FREQUENCY 
+        edit_freq > STRUGGLE_THRESHOLD_EDIT_FREQUENCY
         or error_count > STRUGGLE_THRESHOLD_ERROR_COUNT
     )
-    
+
     logger.info(
         "Struggle detection evaluated",
         extra={
@@ -54,37 +55,39 @@ def detect_struggle(state: StruggleState) -> StruggleState:
             "is_struggling": is_struggling,
             "threshold_frequency": STRUGGLE_THRESHOLD_EDIT_FREQUENCY,
             "threshold_errors": STRUGGLE_THRESHOLD_ERROR_COUNT,
-        }
+        },
     )
-    
+
     return {"is_struggling": is_struggling}
+
 
 def generate_lesson(state: StruggleState) -> StruggleState:
     """
     Generates a lesson recommendation if struggling.
-    
+
     Args:
         state: Current workflow state with is_struggling flag
-        
+
     Returns:
         Updated state with lesson_recommendation if struggling
     """
     if state["is_struggling"]:
         # TODO: In real app, query Vector DB for relevant content based on error patterns
         lesson = "Review the documentation on state management."
-        
+
         logger.info(
             "Lesson recommendation generated",
             extra={
                 "is_struggling": True,
                 "has_recommendation": True,
-            }
+            },
         )
-        
+
         return {"lesson_recommendation": lesson}
-    
+
     logger.debug("No lesson needed - user is not struggling")
     return {"lesson_recommendation": None}
+
 
 def build_struggle_graph(checkpointer=None):
     workflow = StateGraph(StruggleState)
@@ -100,14 +103,9 @@ def build_struggle_graph(checkpointer=None):
         return END
 
     workflow.add_conditional_edges(
-        "detect_struggle",
-        decide_next_step,
-        {
-            "generate_lesson": "generate_lesson",
-            END: END
-        }
+        "detect_struggle", decide_next_step, {"generate_lesson": "generate_lesson", END: END}
     )
-    
+
     workflow.add_edge("generate_lesson", END)
 
     return workflow.compile(checkpointer=checkpointer)
