@@ -9,8 +9,8 @@ from collections.abc import AsyncGenerator
 
 from fastapi import Depends
 from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
-from sqlmodel.ext.asyncio import AsyncSession, create_async_engine
 
 from core.config import get_settings
 
