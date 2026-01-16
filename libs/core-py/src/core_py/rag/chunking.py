@@ -94,8 +94,7 @@ def get_text_splitter(
 
     elif strategy == "semantic":
         raise NotImplementedError(
-            "Semantic chunking is not yet implemented. "
-            "Use 'recursive' or 'fixed' strategy instead."
+            "Semantic chunking is not yet implemented. Use 'recursive' or 'fixed' strategy instead."
         )
 
     else:

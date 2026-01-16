@@ -66,9 +66,7 @@ def validate_path(path: str | Path, base_dirs: list[str] | None = None) -> Path:
             continue
 
     if not is_allowed:
-        raise RAGPathError(
-            f"Path {resolved} is outside allowed directories. " f"Allowed: {base_dirs}"
-        )
+        raise RAGPathError(f"Path {resolved} is outside allowed directories. Allowed: {base_dirs}")
 
     return resolved
 

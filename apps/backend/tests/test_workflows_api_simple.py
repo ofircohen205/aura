@@ -4,6 +4,7 @@ Tests the workflow API v1 endpoints using the service layer.
 """
 
 import sys
+import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -168,7 +169,8 @@ async def test_get_workflow_state_not_found():
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
-        response = client.get("/workflows/non-existent-thread-id")
+        non_existent_id = str(uuid.uuid4())
+        response = client.get(f"/workflows/{non_existent_id}")
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
@@ -179,6 +181,7 @@ async def test_get_workflow_state_success():
     with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_checkpointer_instance = AsyncMock()
         # Mock a valid checkpoint
+        test_thread_id = str(uuid.uuid4())
         mock_checkpoint = {
             "channel_values": {
                 "edit_frequency": 15.0,
@@ -191,9 +194,9 @@ async def test_get_workflow_state_success():
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
-        response = client.get("/workflows/test-thread-id")
+        response = client.get(f"/workflows/{test_thread_id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["thread_id"] == "test-thread-id"
+        assert data["thread_id"] == test_thread_id
         assert "state" in data
         assert data["state"]["is_struggling"] is True
