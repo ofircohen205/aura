@@ -347,8 +347,12 @@ async def test_load_markdown_with_yaml_frontmatter(tmp_path):
 
 def test_load_markdown_file_size_limit(tmp_path, monkeypatch):
     """Test that file size limits are enforced."""
-    # Set a small limit for testing
-    monkeypatch.setenv("RAG_MAX_FILE_SIZE", "100")
+    # Patch the config value directly since it's imported at module level
+    from core_py.ml import config
+    from core_py.rag import utils
+
+    monkeypatch.setattr(config, "RAG_MAX_FILE_SIZE", 100)
+    monkeypatch.setattr(utils, "RAG_MAX_FILE_SIZE", 100)
 
     large_file = tmp_path / "large.md"
     large_file.write_text("# " + "x" * 200)  # Exceeds 100 bytes

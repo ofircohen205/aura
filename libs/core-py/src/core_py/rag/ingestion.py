@@ -89,16 +89,17 @@ def discover_files(
             raise RAGValidationError(f"Invalid file pattern syntax: {pattern}")
 
     files: list[Path] = []
-    pattern = "**/*" if recursive else "*"
 
     for file_pattern in file_patterns:
         # Handle both .md and *.md patterns
         if not file_pattern.startswith("*"):
             file_pattern = f"*{file_pattern}"
 
-        found = list(
-            validated_directory.glob(f"{pattern}/{file_pattern}" if recursive else file_pattern)
-        )
+        # Use **/*.md to match files in root and all subdirectories when recursive,
+        # otherwise use *.md to match only files in root directory
+        pattern = f"**/{file_pattern}" if recursive else file_pattern
+
+        found = list(validated_directory.glob(pattern))
         files.extend(found)
 
     # Remove duplicates and filter to only files
