@@ -5,7 +5,9 @@ Provides retrieval-augmented generation capabilities for querying knowledge base
 and retrieving relevant context for lesson generation.
 """
 
+import asyncio
 import logging
+from pathlib import Path
 from typing import Any
 
 from core_py.ml.config import (
@@ -14,9 +16,11 @@ from core_py.ml.config import (
     PGVECTOR_COLLECTION,
     PGVECTOR_CONNECTION_STRING,
     RAG_ENABLED,
+    RAG_INGESTION_BATCH_SIZE,
     RAG_TOP_K,
     VECTOR_STORE_TYPE,
 )
+from core_py.rag.ingestion import ingest_directory, ingest_document
 
 # Re-export for backward compatibility
 __all__ = ["RagService", "get_rag_service", "RAG_ENABLED", "RAG_TOP_K"]
@@ -46,6 +50,7 @@ class RagService:
         self.enabled = enabled or RAG_ENABLED
         self._vector_store = None
         self._embedding_model = None
+        self._init_lock = asyncio.Lock()  # Prevent concurrent initialization
 
     async def query_knowledge(
         self, query: str, error_patterns: list[str] | None = None, top_k: int | None = None
@@ -84,16 +89,11 @@ class RagService:
 
             # Query vector store
             # Note: similarity_search is synchronous in LangChain, but we're in async context
-            # For production, consider using async vector stores or running in executor
-            import asyncio
-
-            loop = asyncio.get_event_loop()
-            results = await loop.run_in_executor(
-                None,
-                lambda: self._vector_store.similarity_search(
-                    enhanced_query,
-                    k=top_k,
-                ),
+            # Use asyncio.to_thread for async execution
+            results = await asyncio.to_thread(
+                self._vector_store.similarity_search,
+                enhanced_query,
+                k=top_k,
             )
 
             # Format results into context string
@@ -130,10 +130,18 @@ class RagService:
         Initialize the vector store connection.
 
         Supports both pgvector (PostgreSQL extension) and FAISS for local development.
+        Uses a lock to prevent concurrent initialization.
         """
+        # Check again after acquiring lock (double-check pattern)
         if self._vector_store is not None:
             logger.debug("Vector store already initialized")
             return
+
+        async with self._init_lock:
+            # Double-check after acquiring lock
+            if self._vector_store is not None:
+                logger.debug("Vector store already initialized (checked after lock)")
+                return
 
         try:
             from langchain_openai import OpenAIEmbeddings
@@ -165,7 +173,7 @@ class RagService:
             )
             raise ImportError(
                 "Vector store dependencies not installed. "
-                "For pgvector: pip install langchain-pgvector pgvector. "
+                "For pgvector: pip install langchain-community pgvector. "
                 "For FAISS: pip install langchain-community faiss-cpu"
             ) from e
         except Exception as e:
@@ -313,6 +321,234 @@ class RagService:
             formatted.append(f"### Document {i} (from {source})\n{content}\n")
 
         return "\n".join(formatted)
+
+    async def ingest_document(
+        self, path: str | Path, metadata: dict[str, Any] | None = None
+    ) -> None:
+        """
+        Ingest a single document into the vector store.
+
+        Loads, chunks, and adds a document to the vector store.
+
+        Args:
+            path: Path to the document file
+            metadata: Optional metadata to override or add to document metadata
+
+        Raises:
+            FileNotFoundError: If document doesn't exist
+            RuntimeError: If vector store is not initialized
+
+        Example:
+            >>> service = RagService(enabled=True)
+            >>> await service.ingest_document("docs/guide.md")
+        """
+        if not self.enabled:
+            logger.warning("RAG service is disabled, skipping ingestion")
+            return
+
+        # Initialize vector store if needed
+        if not self._vector_store:
+            await self._initialize_vector_store()
+
+        if not self._vector_store:
+            raise RuntimeError(
+                "Vector store not initialized. Cannot ingest documents. "
+                "Check vector store configuration."
+            )
+
+        # Ingest and chunk the document
+        documents = await ingest_document(path, metadata_override=metadata)
+
+        if not documents:
+            logger.warning(f"No chunks created for {path}")
+            return
+
+        # Add documents to vector store
+        # Note: LangChain vector stores use synchronous add_documents, so we run in executor
+        await asyncio.to_thread(self._vector_store.add_documents, documents)
+
+        # For FAISS, save the index after adding documents
+        if VECTOR_STORE_TYPE == "faiss":
+            await asyncio.to_thread(self._vector_store.save_local, FAISS_INDEX_PATH)
+
+        logger.info(
+            "Document ingested successfully",
+            extra={
+                "path": str(path),
+                "chunks": len(documents),
+                "vector_store_type": VECTOR_STORE_TYPE,
+            },
+        )
+
+    async def ingest_directory(
+        self,
+        directory: str | Path,
+        file_patterns: list[str] | None = None,
+        recursive: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Ingest all documents in a directory into the vector store.
+
+        Args:
+            directory: Directory to ingest
+            file_patterns: File patterns to match (e.g., ["*.md", "*.py"])
+            recursive: Whether to search recursively
+
+        Returns:
+            Dictionary with ingestion statistics:
+            {
+                "files_processed": int,
+                "total_chunks": int,
+                "errors": list[str]
+            }
+
+        Example:
+            >>> result = await service.ingest_directory("docs", file_patterns=["*.md"])
+            >>> result["files_processed"]
+            10
+        """
+        if not self.enabled:
+            logger.warning("RAG service is disabled, skipping ingestion")
+            return {
+                "files_processed": 0,
+                "total_chunks": 0,
+                "errors": ["RAG service is disabled"],
+            }
+
+        # Initialize vector store if needed
+        if not self._vector_store:
+            await self._initialize_vector_store()
+
+        if not self._vector_store:
+            raise RuntimeError(
+                "Vector store not initialized. Cannot ingest documents. "
+                "Check vector store configuration."
+            )
+
+        # Ingest directory
+        result = await ingest_directory(directory, file_patterns=file_patterns, recursive=recursive)
+
+        documents = result["documents"]
+        if not documents:
+            logger.warning(f"No documents found in {directory}")
+            return {
+                "files_processed": 0,
+                "total_chunks": 0,
+                "errors": result["errors"],
+            }
+
+        # Add documents to vector store in batches
+        # Note: LangChain vector stores use synchronous add_documents, so we run in executor
+        batch_size = RAG_INGESTION_BATCH_SIZE
+
+        def _add_documents_batch(docs: list[Any]) -> None:
+            """Helper function to add documents batch."""
+            self._vector_store.add_documents(docs)
+
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i : i + batch_size]
+            await asyncio.to_thread(_add_documents_batch, batch)
+            logger.debug(
+                f"Added batch {i // batch_size + 1} to vector store",
+                extra={"batch_size": len(batch), "total": len(documents)},
+            )
+
+        # For FAISS, save the index after adding all documents
+        if VECTOR_STORE_TYPE == "faiss":
+            await asyncio.to_thread(self._vector_store.save_local, FAISS_INDEX_PATH)
+
+        logger.info(
+            "Directory ingestion completed",
+            extra={
+                "directory": str(directory),
+                "files_processed": result["files_processed"],
+                "total_chunks": result["total_chunks"],
+                "errors": len(result["errors"]),
+            },
+        )
+
+        return {
+            "files_processed": result["files_processed"],
+            "total_chunks": result["total_chunks"],
+            "errors": result["errors"],
+        }
+
+    async def delete_document(self, source: str) -> None:  # noqa: ARG002
+        """
+        Delete a document from the vector store by source path.
+
+        Note: This method only works with pgvector. FAISS doesn't support
+        document deletion without rebuilding the index.
+
+        Args:
+            source: Source path of the document to delete
+
+        Raises:
+            NotImplementedError: If using FAISS (deletion not supported)
+            RuntimeError: If vector store is not initialized
+
+        Example:
+            >>> await service.delete_document("docs/guide.md")
+        """
+        if not self.enabled:
+            logger.warning("RAG service is disabled, skipping deletion")
+            return
+
+        if not self._vector_store:
+            raise RuntimeError("Vector store not initialized")
+
+        if VECTOR_STORE_TYPE == "faiss":
+            raise NotImplementedError(
+                "Document deletion is not supported for FAISS. "
+                "Rebuild the index or use pgvector for production deployments."
+            )
+
+        # For pgvector, we need to delete by metadata filter
+        # LangChain PGVector doesn't have a direct delete method, so we'd need
+        # to use the underlying connection. This is not yet implemented.
+        raise NotImplementedError(
+            "Document deletion by source is not yet fully implemented for pgvector. "
+            "Consider rebuilding the index or implementing custom deletion logic using "
+            "metadata filters. This feature will be available in a future release."
+        )
+
+    async def list_documents(self) -> list[dict[str, Any]]:
+        """
+        List documents in the vector store (for debugging).
+
+        Returns metadata about documents in the vector store.
+
+        Args:
+            None
+
+        Returns:
+            List of document metadata dictionaries
+
+        Note:
+            This is a debugging utility. Implementation depends on vector store type.
+            For FAISS, this may not be fully supported.
+
+        Example:
+            >>> docs = await service.list_documents()
+            >>> len(docs)
+            10
+        """
+        if not self.enabled:
+            logger.warning("RAG service is disabled")
+            return []
+
+        if not self._vector_store:
+            logger.warning("Vector store not initialized")
+            return []
+
+        # For pgvector, we could query the database directly
+        # For FAISS, this is more limited
+        # This feature is not yet implemented
+        raise NotImplementedError(
+            "list_documents() is not yet fully implemented. "
+            "Consider querying the vector store directly for debugging. "
+            "This feature will be available in a future release."
+        )
 
 
 # Global RAG service instance (for backward compatibility)

@@ -1,7 +1,7 @@
 import typer
 from rich.console import Console
 
-from aura_cli.commands import audit, hook
+from aura_cli.commands import audit, hook, rag
 from aura_cli.config import config_manager
 
 app = typer.Typer(
@@ -13,6 +13,7 @@ console = Console()
 
 app.add_typer(audit.app, name="audit")
 app.add_typer(hook.app, name="hook")
+app.add_typer(rag.app, name="rag")
 
 
 @app.command()
