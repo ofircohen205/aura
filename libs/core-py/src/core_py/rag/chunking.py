@@ -8,7 +8,7 @@ Supports recursive, fixed-size, and semantic chunking approaches.
 import logging
 from typing import Literal
 
-from langchain.text_splitter import (
+from langchain_text_splitters import (
     CharacterTextSplitter,
     RecursiveCharacterTextSplitter,
 )
