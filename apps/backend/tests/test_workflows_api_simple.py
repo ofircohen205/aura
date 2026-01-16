@@ -172,7 +172,9 @@ async def test_get_workflow_state_not_found():
         non_existent_id = str(uuid.uuid4())
         response = client.get(f"/workflows/{non_existent_id}")
         assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
+        response_data = response.json()
+        assert "error" in response_data
+        assert "not found" in response_data["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
