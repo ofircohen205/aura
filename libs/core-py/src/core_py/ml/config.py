@@ -81,3 +81,11 @@ REDIS_SOCKET_CONNECT_TIMEOUT = float(os.getenv("REDIS_SOCKET_CONNECT_TIMEOUT", "
 # LLM Batching Configuration
 LLM_BATCH_SIZE = int(os.getenv("LLM_BATCH_SIZE", "5"))  # Number of prompts per batch
 LLM_BATCH_DELAY = float(os.getenv("LLM_BATCH_DELAY", "0.1"))  # Delay between batches (seconds)
+
+# RAG Ingestion Configuration
+RAG_MAX_FILE_SIZE = int(os.getenv("RAG_MAX_FILE_SIZE", "10485760"))  # 10MB default
+RAG_INGESTION_BATCH_SIZE = int(os.getenv("RAG_INGESTION_BATCH_SIZE", "100"))  # Documents per batch
+_rag_allowed_dirs = os.getenv("RAG_ALLOWED_BASE_DIRS", "").strip()
+RAG_ALLOWED_BASE_DIRS = (
+    [d.strip() for d in _rag_allowed_dirs.split(",") if d.strip()] if _rag_allowed_dirs else []
+)  # Comma-separated list of allowed base directories (empty = no restriction)

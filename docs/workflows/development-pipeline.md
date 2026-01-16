@@ -309,6 +309,35 @@ refactor(services): extract workflow logic to service layer [LIN-789]
 
 ### Commit Process
 
+#### Using the Commit & Push Script (Recommended)
+
+The project includes a script that automates the commit and push process following the development pipeline:
+
+```bash
+# Interactive mode - prompts for all details
+./scripts/commit-and-push.sh
+
+# Skip CI checks (use with caution)
+./scripts/commit-and-push.sh --skip-ci
+
+# Fast CI checks (skips tests and builds)
+./scripts/commit-and-push.sh --fast-ci
+```
+
+**From Cursor**: Open command palette (Cmd+Shift+P / Ctrl+Shift+P) and search for "commit-and-push"
+
+The script will:
+
+1. Optionally run CI checks (recommended)
+2. Show current changes
+3. Prompt for commit type, scope, description, and Linear issue ID
+4. Validate the commit message format
+5. Stage, commit, and push changes
+
+#### Manual Commit Process
+
+If you prefer to commit manually:
+
 ```bash
 # 1. Run CI checks before committing (recommended)
 just ci-check
@@ -460,11 +489,14 @@ just dev-logs            # View all logs
 # Create and switch to branch
 git checkout -b feature/LIN-123-description
 
-# Commit changes
+# Commit and push (interactive script - recommended)
+./scripts/commit-and-push.sh
+./scripts/commit-and-push.sh --fast-ci  # Fast CI checks
+./scripts/commit-and-push.sh --skip-ci  # Skip CI checks
+
+# Or commit manually
 git add .
 git commit -m "feat(scope): description [LIN-123]"
-
-# Push branch
 git push origin feature/LIN-123-description
 
 # Create PR

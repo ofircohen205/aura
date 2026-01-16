@@ -1,14 +1,14 @@
 """
 Simplified API integration tests for workflow endpoints.
-Tests the workflow router directly without full app import.
+Tests the workflow API v1 endpoints using the service layer.
 """
 
 import sys
+import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 # Add src directory to path for imports
@@ -19,25 +19,24 @@ if str(SRC_DIR) not in sys.path:
 # Import conf first to set up paths
 import conf  # noqa: F401, E402
 
-# Import router directly
-from backend.routers.workflows import router  # noqa: E402
+# Import the API v1 workflows app
+from api.v1.workflows.endpoints import create_workflows_app  # noqa: E402
 
-# Create a test app with just the workflows router
-test_app = FastAPI()
-test_app.include_router(router, prefix="/api/v1")
+# Create a test app using the API v1 workflows app
+test_app = create_workflows_app()
 
 
 @pytest.mark.asyncio
 async def test_trigger_struggle_workflow_simple():
     """Test triggering the struggle workflow via API."""
-    # Mock the checkpointer to avoid database dependency
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    # Mock the workflow service to avoid database dependency
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None  # Use None checkpointer
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
         response = client.post(
-            "/api/v1/workflows/struggle",
+            "/workflows/struggle",
             json={"edit_frequency": 20.0, "error_logs": ["Error 1"], "history": []},
         )
         assert response.status_code == 200
@@ -51,13 +50,13 @@ async def test_trigger_struggle_workflow_simple():
 @pytest.mark.asyncio
 async def test_trigger_struggle_workflow_not_struggling_simple():
     """Test triggering the struggle workflow when user is not struggling."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
         response = client.post(
-            "/api/v1/workflows/struggle",
+            "/workflows/struggle",
             json={"edit_frequency": 5.0, "error_logs": [], "history": []},
         )
         assert response.status_code == 200
@@ -71,13 +70,13 @@ async def test_trigger_struggle_workflow_not_struggling_simple():
 @pytest.mark.asyncio
 async def test_trigger_audit_workflow_with_violations_simple():
     """Test triggering the audit workflow with code violations."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
         response = client.post(
-            "/api/v1/workflows/audit",
+            "/workflows/audit",
             json={
                 "diff_content": """--- a/src/file.py
 +++ b/src/file.py
@@ -99,13 +98,13 @@ async def test_trigger_audit_workflow_with_violations_simple():
 @pytest.mark.asyncio
 async def test_trigger_audit_workflow_clean_code_simple():
     """Test triggering the audit workflow with clean code."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
         response = client.post(
-            "/api/v1/workflows/audit", json={"diff_content": "def foo():\n    return 'clean code'"}
+            "/workflows/audit", json={"diff_content": "def foo():\n    return 'clean code'"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -118,26 +117,26 @@ async def test_trigger_audit_workflow_clean_code_simple():
 @pytest.mark.asyncio
 async def test_trigger_struggle_workflow_invalid_input():
     """Test struggle workflow with invalid input (missing required field)."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
         # Missing required field 'edit_frequency'
-        response = client.post("/api/v1/workflows/struggle", json={"error_logs": ["Error 1"]})
+        response = client.post("/workflows/struggle", json={"error_logs": ["Error 1"]})
         assert response.status_code == 422  # Validation error
 
 
 @pytest.mark.asyncio
 async def test_trigger_struggle_workflow_negative_frequency():
     """Test struggle workflow with negative edit frequency (should be rejected)."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
         response = client.post(
-            "/api/v1/workflows/struggle",
+            "/workflows/struggle",
             json={"edit_frequency": -5.0, "error_logs": [], "history": []},
         )
         # Should be rejected by Pydantic validation (edit_frequency >= 0)
@@ -148,12 +147,12 @@ async def test_trigger_struggle_workflow_negative_frequency():
 @pytest.mark.asyncio
 async def test_trigger_audit_workflow_empty_diff():
     """Test audit workflow with empty diff content."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_get_checkpointer.return_value.__aenter__.return_value = None
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
-        response = client.post("/api/v1/workflows/audit", json={"diff_content": ""})
+        response = client.post("/workflows/audit", json={"diff_content": ""})
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "completed"
@@ -163,24 +162,28 @@ async def test_trigger_audit_workflow_empty_diff():
 @pytest.mark.asyncio
 async def test_get_workflow_state_not_found():
     """Test get_workflow_state with non-existent thread_id."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_checkpointer_instance = AsyncMock()
         mock_checkpointer_instance.aget.return_value = None  # No checkpoint found
         mock_get_checkpointer.return_value.__aenter__.return_value = mock_checkpointer_instance
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
-        response = client.get("/api/v1/workflows/non-existent-thread-id")
+        non_existent_id = str(uuid.uuid4())
+        response = client.get(f"/workflows/{non_existent_id}")
         assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
+        response_data = response.json()
+        assert "error" in response_data
+        assert "not found" in response_data["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
 async def test_get_workflow_state_success():
     """Test get_workflow_state with valid checkpoint."""
-    with patch("backend.routers.workflows.get_checkpointer") as mock_get_checkpointer:
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
         mock_checkpointer_instance = AsyncMock()
         # Mock a valid checkpoint
+        test_thread_id = str(uuid.uuid4())
         mock_checkpoint = {
             "channel_values": {
                 "edit_frequency": 15.0,
@@ -193,9 +196,9 @@ async def test_get_workflow_state_success():
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
-        response = client.get("/api/v1/workflows/test-thread-id")
+        response = client.get(f"/workflows/{test_thread_id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["thread_id"] == "test-thread-id"
+        assert data["thread_id"] == test_thread_id
         assert "state" in data
         assert data["state"]["is_struggling"] is True

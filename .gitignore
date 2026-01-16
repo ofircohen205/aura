@@ -56,3 +56,5 @@ Thumbs.db
 .env.production
 .env.*
 !.env.example
+
+.ruff_cache/
