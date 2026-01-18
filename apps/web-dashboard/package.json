@@ -11,5 +11,8 @@
     "next": "latest",
     "react": "latest",
     "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.8"
   }
 }

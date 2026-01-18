@@ -35,6 +35,14 @@ done
 
 echo -e "${GREEN}Running CI checks locally...${NC}\n"
 
+# Ensure Node 20 is used (if nvm is available)
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    echo "  → Ensuring Node 20 is active..."
+    source "$HOME/.nvm/nvm.sh"
+    nvm use 20 >/dev/null 2>&1 || true
+    echo -e "${GREEN}✓ Using Node $(node --version)${NC}\n"
+fi
+
 # Track if any check fails
 FAILED=false
 
