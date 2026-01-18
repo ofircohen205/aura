@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import Index, UniqueConstraint
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
 
 
 class User(SQLModel, table=True):  # type: ignore[call-arg]
@@ -41,8 +41,7 @@ class User(SQLModel, table=True):  # type: ignore[call-arg]
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
 
-    # Relationships
-    refresh_tokens: list["RefreshToken"] = Relationship(back_populates="user", cascade_delete=True)
+    # Note: Refresh tokens are now stored in Redis, not in the database
 
     __table_args__ = (
         UniqueConstraint("email", name="uq_users_email"),
@@ -52,16 +51,15 @@ class User(SQLModel, table=True):  # type: ignore[call-arg]
     )
 
 
+# Note: RefreshToken model is kept for backward compatibility but is no longer used.
+# Refresh tokens are now stored in Redis for better performance and automatic expiration.
+# The refresh_tokens table can be removed in a future migration if not needed.
 class RefreshToken(SQLModel, table=True):  # type: ignore[call-arg]
     """
-    Refresh token model for JWT token refresh mechanism.
+    Refresh token model (DEPRECATED - now using Redis).
 
-    Attributes:
-        id: Unique token identifier
-        user_id: Foreign key to user
-        token: Refresh token string (unique)
-        expires_at: Token expiration timestamp
-        created_at: Token creation timestamp
+    This model is kept for backward compatibility but refresh tokens
+    are now stored in Redis. The table can be removed in a future migration.
     """
 
     __tablename__ = "refresh_tokens"
@@ -71,9 +69,6 @@ class RefreshToken(SQLModel, table=True):  # type: ignore[call-arg]
     token: str = Field(max_length=255, unique=True, index=True, nullable=False)
     expires_at: datetime = Field(nullable=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
-
-    # Relationships
-    user: User = Relationship(back_populates="refresh_tokens")
 
     __table_args__ = (
         UniqueConstraint("token", name="uq_refresh_tokens_token"),

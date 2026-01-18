@@ -86,14 +86,11 @@ async def login(
     access_token = await auth_service.create_access_token(user)
 
     # Create refresh token
-    refresh_token_record = await auth_service.create_refresh_token_record(
-        session=session,
-        user=user,
-    )
+    refresh_token = await auth_service.create_refresh_token_record(user=user)
 
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token_record.token,
+        refresh_token=refresh_token,
         token_type="bearer",
     )
 
@@ -119,14 +116,14 @@ async def refresh(
     Validates the refresh token and returns a new access token.
     The refresh token remains valid until it expires.
     """
-    access_token, refresh_token_record = await auth_service.refresh_access_token(
+    access_token, refresh_token = await auth_service.refresh_access_token(
         session=session,
         refresh_token_str=token_data.refresh_token,
     )
 
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token_record.token,
+        refresh_token=refresh_token,
         token_type="bearer",
     )
 
@@ -150,7 +147,6 @@ async def logout(
     The refresh token is deleted from the database, preventing further use.
     """
     await auth_service.revoke_refresh_token(
-        session=session,
         refresh_token_str=token_data.refresh_token,
     )
 

@@ -139,7 +139,7 @@ class TestUserLogin:
 
             from uuid import uuid4
 
-            from db.models.user import RefreshToken, User
+            from db.models.user import User
 
             mock_user = User(
                 id=uuid4(),
@@ -153,14 +153,6 @@ class TestUserLogin:
                 updated_at=datetime.now(UTC),
             )
 
-            mock_refresh_token = RefreshToken(
-                id=uuid4(),
-                user_id=mock_user.id,
-                token="refresh_token_string",
-                expires_at=datetime.now(UTC) + timedelta(days=7),
-                created_at=datetime.now(UTC),
-            )
-
             with (
                 patch("services.auth.service.auth_service.authenticate_user") as mock_auth,
                 patch("services.auth.service.auth_service.create_access_token") as mock_access,
@@ -170,7 +162,7 @@ class TestUserLogin:
             ):
                 mock_auth.return_value = mock_user
                 mock_access.return_value = "access_token_string"
-                mock_refresh.return_value = mock_refresh_token
+                mock_refresh.return_value = "refresh_token_string"
 
                 response = client.post(
                     "/api/v1/auth/login",
@@ -232,20 +224,8 @@ class TestTokenRefresh:
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_get_session.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            from uuid import uuid4
-
-            from db.models.user import RefreshToken
-
-            mock_refresh_token = RefreshToken(
-                id=uuid4(),
-                user_id=uuid4(),
-                token="valid_refresh_token",
-                expires_at=datetime.now(UTC) + timedelta(days=7),
-                created_at=datetime.now(UTC),
-            )
-
             with patch("services.auth.service.auth_service.refresh_access_token") as mock_refresh:
-                mock_refresh.return_value = ("new_access_token", mock_refresh_token)
+                mock_refresh.return_value = ("new_access_token", "valid_refresh_token")
 
                 response = client.post(
                     "/api/v1/auth/refresh",

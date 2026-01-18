@@ -12,14 +12,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import get_settings
+from core.redis_client import get_redis_client
 from core.security import (
     create_jwt_token,
     create_refresh_token,
     hash_password,
-    is_token_expired,
     verify_password,
 )
-from db.models.user import RefreshToken, User
+from db.models.user import User
 from services.auth.exceptions import (
     InactiveUserError,
     InvalidCredentialsError,
@@ -171,129 +171,155 @@ class AuthService:
 
     async def create_refresh_token_record(
         self,
-        session: AsyncSession,
         user: User,
-    ) -> RefreshToken:
+    ) -> str:
         """
-        Create and store a refresh token for a user.
+        Create and store a refresh token for a user in Redis.
 
         Args:
-            session: Database session
             user: User object
 
         Returns:
-            Created RefreshToken object
+            Refresh token string
         """
         # Generate refresh token
         token = create_refresh_token()
-        expires_at = datetime.now(UTC) + timedelta(days=settings.jwt_refresh_token_expire_days)
+        expires_in_seconds = settings.jwt_refresh_token_expire_days * 24 * 60 * 60
 
-        # Create refresh token record
-        refresh_token = RefreshToken(
-            user_id=user.id,
-            token=token,
-            expires_at=expires_at,
-        )
+        # Store in Redis with TTL
+        redis_client = await get_redis_client()
+        if redis_client:
+            try:
+                # Store token with user ID as value, TTL in seconds
+                redis_key = f"refresh_token:{token}"
+                await redis_client.setex(
+                    redis_key,
+                    expires_in_seconds,
+                    str(user.id),
+                )
+                logger.info(
+                    "Refresh token created in Redis",
+                    extra={"user_id": str(user.id), "token": token[:10] + "..."},
+                )
+            except Exception as e:
+                logger.error(f"Failed to store refresh token in Redis: {e}", exc_info=True)
+                raise
+        else:
+            logger.warning("Redis not available, refresh token not stored")
+            raise RuntimeError("Redis is not available for storing refresh tokens")
 
-        session.add(refresh_token)
-        await session.commit()
-        await session.refresh(refresh_token)
-
-        logger.info(
-            "Refresh token created",
-            extra={"user_id": str(user.id), "token_id": str(refresh_token.id)},
-        )
-
-        return refresh_token
+        return token
 
     async def refresh_access_token(
         self,
         session: AsyncSession,
         refresh_token_str: str,
-    ) -> tuple[str, RefreshToken]:
+    ) -> tuple[str, str]:
         """
-        Refresh an access token using a refresh token.
+        Refresh an access token using a refresh token from Redis.
 
         Args:
             session: Database session
             refresh_token_str: Refresh token string
 
         Returns:
-            Tuple of (new_access_token, refresh_token_record)
+            Tuple of (new_access_token, refresh_token_string)
 
         Raises:
             RefreshTokenNotFoundError: If refresh token is not found or expired
         """
-        # Find refresh token
-        stmt = select(RefreshToken).where(RefreshToken.token == refresh_token_str)
-        result = await session.execute(stmt)
-        refresh_token = result.scalar_one_or_none()
-
-        if not refresh_token:
-            logger.warning("Refresh token not found", extra={"token": refresh_token_str[:10]})
+        # Get refresh token from Redis
+        redis_client = await get_redis_client()
+        if not redis_client:
+            logger.error("Redis not available for refresh token validation")
             raise RefreshTokenNotFoundError()
 
-        # Check if token is expired
-        if is_token_expired(refresh_token.expires_at):
-            logger.warning(
-                "Refresh token expired",
-                extra={"token_id": str(refresh_token.id), "user_id": str(refresh_token.user_id)},
-            )
-            # Delete expired token
-            await session.delete(refresh_token)
-            await session.commit()
-            raise RefreshTokenNotFoundError()
+        try:
+            redis_key = f"refresh_token:{refresh_token_str}"
+            user_id_str = await redis_client.get(redis_key)
 
-        # Get user
-        user = await self.get_user_by_id(session, refresh_token.user_id)
-        if not user:
-            logger.error(
-                "User not found for refresh token",
-                extra={"token_id": str(refresh_token.id), "user_id": str(refresh_token.user_id)},
-            )
-            raise RefreshTokenNotFoundError()
+            if not user_id_str:
+                logger.warning(
+                    "Refresh token not found in Redis", extra={"token": refresh_token_str[:10]}
+                )
+                raise RefreshTokenNotFoundError()
 
-        # Check if user is active
-        if not user.is_active:
-            logger.warning(
-                "Inactive user attempted token refresh",
+            # Get user
+            try:
+                user_id = UUID(user_id_str)
+            except ValueError as e:
+                logger.error("Invalid user ID in refresh token", extra={"user_id": user_id_str})
+                raise RefreshTokenNotFoundError() from e
+
+            user = await self.get_user_by_id(session, user_id)
+            if not user:
+                logger.error(
+                    "User not found for refresh token",
+                    extra={"user_id": str(user_id)},
+                )
+                # Delete invalid token from Redis
+                await redis_client.delete(redis_key)
+                raise RefreshTokenNotFoundError()
+
+            # Check if user is active
+            if not user.is_active:
+                logger.warning(
+                    "Inactive user attempted token refresh",
+                    extra={"user_id": str(user.id)},
+                )
+                # Delete token for inactive user
+                await redis_client.delete(redis_key)
+                raise InactiveUserError()
+
+            # Create new access token
+            access_token = await self.create_access_token(user)
+
+            logger.info(
+                "Access token refreshed",
                 extra={"user_id": str(user.id)},
             )
-            raise InactiveUserError()
 
-        # Create new access token
-        access_token = await self.create_access_token(user)
+            return access_token, refresh_token_str
 
-        logger.info(
-            "Access token refreshed",
-            extra={"user_id": str(user.id), "token_id": str(refresh_token.id)},
-        )
-
-        return access_token, refresh_token
+        except RefreshTokenNotFoundError:
+            raise
+        except InactiveUserError:
+            raise
+        except Exception as e:
+            logger.error(f"Error refreshing access token: {e}", exc_info=True)
+            raise RefreshTokenNotFoundError() from e
 
     async def revoke_refresh_token(
         self,
-        session: AsyncSession,
         refresh_token_str: str,
     ) -> None:
         """
-        Revoke (delete) a refresh token (logout).
+        Revoke (delete) a refresh token from Redis (logout).
 
         Args:
-            session: Database session
             refresh_token_str: Refresh token string to revoke
         """
-        stmt = select(RefreshToken).where(RefreshToken.token == refresh_token_str)
-        result = await session.execute(stmt)
-        refresh_token = result.scalar_one_or_none()
+        redis_client = await get_redis_client()
+        if not redis_client:
+            logger.warning("Redis not available, cannot revoke refresh token")
+            return
 
-        if refresh_token:
-            await session.delete(refresh_token)
-            await session.commit()
-            logger.info(
-                "Refresh token revoked",
-                extra={"token_id": str(refresh_token.id), "user_id": str(refresh_token.user_id)},
-            )
+        try:
+            redis_key = f"refresh_token:{refresh_token_str}"
+            deleted = await redis_client.delete(redis_key)
+
+            if deleted:
+                logger.info(
+                    "Refresh token revoked from Redis",
+                    extra={"token": refresh_token_str[:10] + "..."},
+                )
+            else:
+                logger.warning(
+                    "Refresh token not found in Redis for revocation",
+                    extra={"token": refresh_token_str[:10] + "..."},
+                )
+        except Exception as e:
+            logger.error(f"Error revoking refresh token: {e}", exc_info=True)
 
     async def get_user_by_id(self, session: AsyncSession, user_id: UUID) -> User | None:
         """
