@@ -58,6 +58,14 @@ def mock_redis_client() -> MagicMock:
 
 
 @pytest.fixture
+def auth_service():
+    """Create AuthService instance for testing."""
+    from services.auth.service import AuthService
+
+    return AuthService()
+
+
+@pytest.fixture
 def test_user_data() -> dict[str, str]:
     """Test user data for creating users."""
     return {
@@ -73,6 +81,43 @@ def app_client() -> TestClient:
     from main import app  # noqa: E402
 
     return TestClient(app)
+
+
+@pytest.fixture
+def csrf_token(app_client: TestClient) -> str:
+    """
+    Get CSRF token by making a GET request.
+
+    The CSRF middleware sets a cookie on GET requests that can be used
+    for subsequent POST/PUT/PATCH/DELETE requests.
+    """
+    # Make a GET request to get the CSRF token cookie
+    response = app_client.get("/health")
+    csrf_token = response.cookies.get("csrf-token")
+    if not csrf_token:
+        # If no cookie was set, generate a token manually
+        import secrets
+
+        csrf_token = secrets.token_urlsafe(32)
+    return csrf_token
+
+
+@pytest.fixture
+def csrf_headers(app_client: TestClient) -> dict[str, str]:
+    """
+    Get headers with CSRF token for protected requests.
+
+    Makes a GET request to ensure the CSRF cookie is set in the TestClient.
+    """
+    # Make a GET request to get the CSRF token cookie
+    response = app_client.get("/health")
+    csrf_token = response.cookies.get("csrf-token")
+    if not csrf_token:
+        # If no cookie was set, generate a token manually
+        import secrets
+
+        csrf_token = secrets.token_urlsafe(32)
+    return {"X-CSRF-Token": csrf_token}
 
 
 # Integration test fixtures

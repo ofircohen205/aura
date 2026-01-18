@@ -31,6 +31,20 @@ TEST_PASSWORD = "testpassword123"
 TEST_SECRET_KEY = "test-secret-key-for-jwt-tokens-minimum-32-chars"
 
 
+def get_csrf_token_and_headers(test_client: TestClient) -> tuple[str, dict[str, str]]:
+    """Get CSRF token and headers for a TestClient."""
+    # Make a GET request to get the CSRF token cookie
+    response = test_client.get("/health")
+    csrf_token = response.cookies.get("csrf-token")
+    if not csrf_token:
+        # If no cookie was set, generate a token manually
+        import secrets
+
+        csrf_token = secrets.token_urlsafe(32)
+    headers = {"X-CSRF-Token": csrf_token}
+    return csrf_token, headers
+
+
 @pytest.fixture
 def mock_jwt_secret_key(monkeypatch):
     """Set JWT secret key for testing."""
@@ -49,6 +63,7 @@ class TestUserRegistration:
 
     def test_register_success(self, mock_jwt_secret_key):
         """Test successful user registration."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         with patch("api.v1.auth.endpoints.get_session") as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -81,6 +96,8 @@ class TestUserRegistration:
                         "username": TEST_USERNAME,
                         "password": TEST_PASSWORD,
                     },
+                    headers=headers,
+                    cookies={"csrf-token": csrf_token},
                 )
 
                 assert response.status_code == 201
@@ -92,6 +109,7 @@ class TestUserRegistration:
 
     def test_register_duplicate_email(self, mock_jwt_secret_key):
         """Test registration with duplicate email."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         with patch("api.v1.auth.endpoints.get_session") as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -109,12 +127,15 @@ class TestUserRegistration:
                         "username": TEST_USERNAME,
                         "password": TEST_PASSWORD,
                     },
+                    headers=headers,
+                    cookies={"csrf-token": csrf_token},
                 )
 
                 assert response.status_code == 409
 
     def test_register_weak_password(self, mock_jwt_secret_key):
         """Test registration with weak password."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         response = client.post(
             "/api/v1/auth/register",
             json={
@@ -122,6 +143,8 @@ class TestUserRegistration:
                 "username": TEST_USERNAME,
                 "password": "short",  # Too short
             },
+            headers=headers,
+            cookies={"csrf-token": csrf_token},
         )
 
         assert response.status_code == 422  # Validation error
@@ -132,6 +155,7 @@ class TestUserLogin:
 
     def test_login_success(self, mock_jwt_secret_key):
         """Test successful user login."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         with patch("api.v1.auth.endpoints.get_session") as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -167,6 +191,8 @@ class TestUserLogin:
                 response = client.post(
                     "/api/v1/auth/login",
                     json={"email": TEST_EMAIL, "password": TEST_PASSWORD},
+                    headers=headers,
+                    cookies={"csrf-token": csrf_token},
                 )
 
                 assert response.status_code == 200
@@ -177,6 +203,7 @@ class TestUserLogin:
 
     def test_login_invalid_credentials(self, mock_jwt_secret_key):
         """Test login with invalid credentials."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         with patch("api.v1.auth.endpoints.get_session") as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -190,12 +217,15 @@ class TestUserLogin:
                 response = client.post(
                     "/api/v1/auth/login",
                     json={"email": TEST_EMAIL, "password": "wrong_password"},
+                    headers=headers,
+                    cookies={"csrf-token": csrf_token},
                 )
 
                 assert response.status_code == 401
 
     def test_login_inactive_user(self, mock_jwt_secret_key):
         """Test login with inactive user account."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         with patch("api.v1.auth.endpoints.get_session") as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -209,6 +239,8 @@ class TestUserLogin:
                 response = client.post(
                     "/api/v1/auth/login",
                     json={"email": TEST_EMAIL, "password": TEST_PASSWORD},
+                    headers=headers,
+                    cookies={"csrf-token": csrf_token},
                 )
 
                 assert response.status_code == 403
@@ -219,6 +251,7 @@ class TestTokenRefresh:
 
     def test_refresh_success(self, mock_jwt_secret_key):
         """Test successful token refresh."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         with patch("api.v1.auth.endpoints.get_session") as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -230,6 +263,8 @@ class TestTokenRefresh:
                 response = client.post(
                     "/api/v1/auth/refresh",
                     json={"refresh_token": "valid_refresh_token"},
+                    headers=headers,
+                    cookies={"csrf-token": csrf_token},
                 )
 
                 assert response.status_code == 200
@@ -240,6 +275,7 @@ class TestTokenRefresh:
 
     def test_refresh_invalid_token(self, mock_jwt_secret_key):
         """Test refresh with invalid token."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         with patch("api.v1.auth.endpoints.get_session") as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -253,6 +289,8 @@ class TestTokenRefresh:
                 response = client.post(
                     "/api/v1/auth/refresh",
                     json={"refresh_token": "invalid_token"},
+                    headers=headers,
+                    cookies={"csrf-token": csrf_token},
                 )
 
                 assert response.status_code == 401
@@ -263,6 +301,7 @@ class TestLogout:
 
     def test_logout_success(self, mock_jwt_secret_key):
         """Test successful logout."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         with patch("api.v1.auth.endpoints.get_session") as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
@@ -274,6 +313,8 @@ class TestLogout:
                 response = client.post(
                     "/api/v1/auth/logout",
                     json={"refresh_token": "refresh_token_to_revoke"},
+                    headers=headers,
+                    cookies={"csrf-token": csrf_token},
                 )
 
                 assert response.status_code == 200
@@ -310,7 +351,7 @@ class TestUserProfile:
             expires_delta=timedelta(minutes=30),
         )
 
-        with patch("core.dependencies.get_current_user") as mock_get_user:
+        with patch("api.dependencies.get_current_user") as mock_get_user:
             mock_get_user.return_value = mock_user
 
             response = client.get(
@@ -328,10 +369,12 @@ class TestUserProfile:
         """Test getting profile without authentication."""
         response = client.get("/api/v1/auth/me")
 
-        assert response.status_code == 422  # Missing authorization header
+        # Without auth header, should get 401 Unauthorized
+        assert response.status_code == 401
 
     def test_update_user_profile(self, mock_jwt_secret_key):
         """Test updating user profile."""
+        csrf_token, headers = get_csrf_token_and_headers(client)
         from uuid import uuid4
 
         from db.models.user import User
@@ -367,7 +410,7 @@ class TestUserProfile:
         )
 
         with (
-            patch("core.dependencies.get_current_user") as mock_get_user,
+            patch("api.dependencies.get_current_user") as mock_get_user,
             patch("api.v1.auth.endpoints.get_session") as mock_get_session,
         ):
             mock_get_user.return_value = mock_user
@@ -380,7 +423,11 @@ class TestUserProfile:
 
                 response = client.patch(
                     "/api/v1/auth/me",
-                    headers={"Authorization": f"Bearer {token}"},
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        **headers,
+                    },
+                    cookies={"csrf-token": csrf_token},
                     json={"email": "newemail@example.com", "username": "newusername"},
                 )
 

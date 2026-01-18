@@ -14,22 +14,38 @@ pytestmark = pytest.mark.integration
 class TestAuthEndpointsIntegration:
     """Integration tests for authentication endpoints."""
 
-    def test_register_endpoint(self, app_client: TestClient, test_user_data: dict[str, str]):
+    def test_register_endpoint(
+        self, app_client: TestClient, test_user_data: dict[str, str], csrf_headers: dict[str, str]
+    ):
         """Test user registration endpoint with real database."""
-        response = app_client.post("/api/v1/auth/register", json=test_user_data)
+        response = app_client.post(
+            "/api/v1/auth/register",
+            json=test_user_data,
+            headers=csrf_headers,
+            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
+        )
 
         # Should succeed or return appropriate error
         assert response.status_code in [201, 409]  # Created or Conflict
 
-    def test_login_endpoint(self, app_client: TestClient, test_user_data: dict[str, str]):
+    def test_login_endpoint(
+        self, app_client: TestClient, test_user_data: dict[str, str], csrf_headers: dict[str, str]
+    ):
         """Test user login endpoint."""
         # First register a user
-        app_client.post("/api/v1/auth/register", json=test_user_data)
+        app_client.post(
+            "/api/v1/auth/register",
+            json=test_user_data,
+            headers=csrf_headers,
+            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
+        )
 
         # Then try to login
         response = app_client.post(
             "/api/v1/auth/login",
             json={"email": test_user_data["email"], "password": test_user_data["password"]},
+            headers=csrf_headers,
+            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
         )
 
         assert response.status_code in [200, 401]  # OK or Unauthorized

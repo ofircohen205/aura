@@ -14,17 +14,24 @@ class TestCompleteAuthFlow:
     """E2E tests for complete authentication flows."""
 
     def test_complete_registration_to_token_refresh_flow(
-        self, app_client, test_user_data, jwt_secret_key
+        self, app_client, test_user_data, jwt_secret_key, csrf_headers
     ):
         """Test complete flow: register -> login -> refresh -> logout."""
         # 1. Register user
-        register_response = app_client.post("/api/v1/auth/register", json=test_user_data)
+        register_response = app_client.post(
+            "/api/v1/auth/register",
+            json=test_user_data,
+            headers=csrf_headers,
+            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
+        )
         assert register_response.status_code == 201
 
         # 2. Login
         login_response = app_client.post(
             "/api/v1/auth/login",
             json={"email": test_user_data["email"], "password": test_user_data["password"]},
+            headers=csrf_headers,
+            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
         )
         assert login_response.status_code == 200
         login_data = login_response.json()
@@ -40,6 +47,8 @@ class TestCompleteAuthFlow:
         refresh_response = app_client.post(
             "/api/v1/auth/refresh",
             json={"refresh_token": refresh_token},
+            headers=csrf_headers,
+            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
         )
         assert refresh_response.status_code == 200
 
@@ -47,5 +56,7 @@ class TestCompleteAuthFlow:
         logout_response = app_client.post(
             "/api/v1/auth/logout",
             json={"refresh_token": refresh_token},
+            headers=csrf_headers,
+            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
         )
         assert logout_response.status_code == 200

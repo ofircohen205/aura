@@ -34,9 +34,16 @@ def test_health(mock_engine):
     assert response.json()["status"] == "ok"
 
 
-def test_events_endpoint():
+def test_events_endpoint(csrf_headers):
+    # First get CSRF token
+    get_response = client.get("/health")
+    csrf_token = get_response.cookies.get("csrf-token")
+
     response = client.post(
-        "/api/v1/events/", json={"source": "pytest", "type": "test", "data": {"foo": "bar"}}
+        "/api/v1/events/",
+        json={"source": "pytest", "type": "test", "data": {"foo": "bar"}},
+        headers={"X-CSRF-Token": csrf_token} if csrf_token else {},
+        cookies={"csrf-token": csrf_token} if csrf_token else {},
     )
     assert response.status_code == 200
     assert response.json()["status"] == "received"

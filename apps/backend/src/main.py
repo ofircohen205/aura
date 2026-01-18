@@ -11,6 +11,7 @@ from sqlalchemy import text
 import conf  # noqa: F401
 from api.middlewares import CSRFProtectionMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from api.v1.audit.endpoints import create_audit_app
+from api.v1.auth import create_auth_app
 from api.v1.events.endpoints import create_events_app
 from api.v1.workflows.endpoints import create_workflows_app
 from core.config import get_settings
@@ -65,10 +66,12 @@ app.add_exception_handler(BaseApplicationException, application_exception_handle
 app.add_exception_handler(Exception, generic_exception_handler)
 
 # Mount Sub-Applications
+auth_app = create_auth_app()
 workflows_app = create_workflows_app()
 events_app = create_events_app()
 audit_app = create_audit_app()
 
+app.mount("/api/v1/auth", auth_app)
 app.mount("/api/v1/workflows", workflows_app)
 app.mount("/api/v1/events", events_app)
 app.mount("/api/v1/audit", audit_app)

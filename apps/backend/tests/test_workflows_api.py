@@ -33,9 +33,15 @@ async def test_trigger_struggle_workflow():
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"
         ) as ac:
+            # Get CSRF token first
+            get_response = await ac.get("/health")
+            csrf_token = get_response.cookies.get("csrf-token")
+
             response = await ac.post(
                 "/api/v1/workflows/workflows/struggle",
                 json={"edit_frequency": 20.0, "error_logs": ["Error 1"], "history": []},
+                headers={"X-CSRF-Token": csrf_token} if csrf_token else {},
+                cookies={"csrf-token": csrf_token} if csrf_token else {},
             )
         assert response.status_code == 200
         data = response.json()
@@ -55,9 +61,15 @@ async def test_trigger_struggle_workflow_not_struggling():
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"
         ) as ac:
+            # Get CSRF token first
+            get_response = await ac.get("/health")
+            csrf_token = get_response.cookies.get("csrf-token")
+
             response = await ac.post(
                 "/api/v1/workflows/workflows/struggle",
                 json={"edit_frequency": 5.0, "error_logs": [], "history": []},
+                headers={"X-CSRF-Token": csrf_token} if csrf_token else {},
+                cookies={"csrf-token": csrf_token} if csrf_token else {},
             )
         assert response.status_code == 200
         data = response.json()
@@ -77,6 +89,10 @@ async def test_trigger_audit_workflow_with_violations():
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"
         ) as ac:
+            # Get CSRF token first
+            get_response = await ac.get("/health")
+            csrf_token = get_response.cookies.get("csrf-token")
+
             response = await ac.post(
                 "/api/v1/workflows/workflows/audit",
                 json={
@@ -88,6 +104,8 @@ async def test_trigger_audit_workflow_with_violations():
 +    print('bad code')
 """
                 },
+                headers={"X-CSRF-Token": csrf_token} if csrf_token else {},
+                cookies={"csrf-token": csrf_token} if csrf_token else {},
             )
         assert response.status_code == 200
         data = response.json()
@@ -107,6 +125,10 @@ async def test_trigger_audit_workflow_clean_code():
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"
         ) as ac:
+            # Get CSRF token first
+            get_response = await ac.get("/health")
+            csrf_token = get_response.cookies.get("csrf-token")
+
             response = await ac.post(
                 "/api/v1/workflows/workflows/audit",
                 json={
@@ -118,6 +140,8 @@ async def test_trigger_audit_workflow_clean_code():
 +    return 'clean code'
 """
                 },
+                headers={"X-CSRF-Token": csrf_token} if csrf_token else {},
+                cookies={"csrf-token": csrf_token} if csrf_token else {},
             )
         assert response.status_code == 200
         data = response.json()
