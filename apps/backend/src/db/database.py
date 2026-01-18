@@ -11,7 +11,7 @@ from fastapi import Depends
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, create_engine  # noqa: F401
 
 from core.config import get_settings
 
