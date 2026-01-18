@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
+from jose import JWTError, jwt
 from loguru import logger
 
 
@@ -83,67 +84,75 @@ def create_jwt_token(
     payload: dict[str, Any],
     secret_key: str,
     expires_delta: timedelta | None = None,
+    algorithm: str = "HS256",
 ) -> str:
     """
     Create a JWT token.
 
-    WARNING: This function is not yet implemented and will raise NotImplementedError.
-
     Args:
-        payload: Token payload data
+        payload: Token payload data (should include 'sub' for subject/user ID)
         secret_key: Secret key for signing
-        expires_delta: Optional expiration time delta
+        expires_delta: Optional expiration time delta (defaults to 30 minutes if not provided)
+        algorithm: JWT signing algorithm (default: HS256)
 
     Returns:
         JWT token string
 
-    Raises:
-        NotImplementedError: This function is not yet implemented
-
-    Note:
-        In production, use a library like python-jose or PyJWT for proper JWT encoding.
-        Example:
+    Example:
         ```python
-        from jose import jwt
-        token = jwt.encode(payload, secret_key, algorithm="HS256")
+        payload = {"sub": "user_id", "email": "user@example.com"}
+        token = create_jwt_token(payload, secret_key, expires_delta=timedelta(minutes=30))
         ```
     """
-    raise NotImplementedError(
-        "create_jwt_token() is not yet implemented. "
-        "Use python-jose or PyJWT for JWT token creation. "
-        "Example: from jose import jwt; token = jwt.encode(payload, secret_key, algorithm='HS256')"
-    )
+    # Create a copy of the payload to avoid mutating the original
+    to_encode = payload.copy()
+
+    # Set expiration time
+    if expires_delta:
+        expire = get_current_timestamp() + expires_delta
+    else:
+        # Default to 30 minutes if not specified
+        expire = get_current_timestamp() + timedelta(minutes=30)
+
+    # Add standard JWT claims
+    to_encode.update({"exp": expire, "iat": get_current_timestamp()})
+
+    # Encode and return the token
+    encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=algorithm)
+    return encoded_jwt
 
 
-def verify_jwt_token(token: str, secret_key: str) -> dict[str, Any] | None:
+def verify_jwt_token(
+    token: str, secret_key: str, algorithm: str = "HS256"
+) -> dict[str, Any] | None:
     """
     Verify and decode a JWT token.
-
-    WARNING: This function is not yet implemented and will raise NotImplementedError.
 
     Args:
         token: JWT token string
         secret_key: Secret key for verification
+        algorithm: JWT signing algorithm (default: HS256)
 
     Returns:
-        Decoded payload if valid, None otherwise
+        Decoded payload if valid, None if invalid or expired
 
-    Raises:
-        NotImplementedError: This function is not yet implemented
-
-    Note:
-        In production, use a library like python-jose or PyJWT for proper JWT decoding.
-        Example:
+    Example:
         ```python
-        from jose import jwt
-        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        payload = verify_jwt_token(token, secret_key)
+        if payload:
+            user_id = payload.get("sub")
         ```
     """
-    raise NotImplementedError(
-        "verify_jwt_token() is not yet implemented. "
-        "Use python-jose or PyJWT for JWT token verification. "
-        "Example: from jose import jwt; payload = jwt.decode(token, secret_key, algorithms=['HS256'])"
-    )
+    try:
+        # Decode and verify the token
+        payload = jwt.decode(token, secret_key, algorithms=[algorithm])
+        return payload
+    except JWTError as e:
+        logger.warning(f"JWT token verification failed: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error during JWT verification: {e}")
+        return None
 
 
 def get_current_timestamp() -> datetime:
@@ -167,3 +176,13 @@ def is_token_expired(expires_at: datetime) -> bool:
         True if expired, False otherwise
     """
     return get_current_timestamp() >= expires_at
+
+
+def create_refresh_token() -> str:
+    """
+    Create a cryptographically secure refresh token.
+
+    Returns:
+        Hex-encoded random token string suitable for use as a refresh token
+    """
+    return secrets.token_urlsafe(32)
