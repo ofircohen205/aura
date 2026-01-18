@@ -8,7 +8,6 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from loguru import logger
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import get_settings
@@ -19,6 +18,7 @@ from core.security import (
     hash_password,
     verify_password,
 )
+from dao.user import user_dao
 from db.models.user import User
 from services.auth.exceptions import (
     InactiveUserError,
@@ -56,15 +56,11 @@ class AuthService:
             UserAlreadyExistsError: If user with email or username already exists
         """
         # Check if user with email already exists
-        existing_user = await self.get_user_by_email(session, email)
-        if existing_user:
+        if await user_dao.exists_by_email(session, email):
             raise UserAlreadyExistsError(email=email)
 
         # Check if user with username already exists
-        stmt = select(User).where(User.username == username)
-        result = await session.execute(stmt)
-        existing_username = result.scalar_one_or_none()
-        if existing_username:
+        if await user_dao.exists_by_username(session, username):
             raise UserAlreadyExistsError(username=username)
 
         # Hash password
@@ -80,9 +76,7 @@ class AuthService:
             roles=["user"],
         )
 
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
+        user = await user_dao.create(session, user)
 
         logger.info(
             "User registered",
@@ -112,7 +106,7 @@ class AuthService:
             InvalidCredentialsError: If credentials are invalid
             InactiveUserError: If user account is inactive
         """
-        user = await self.get_user_by_email(session, email)
+        user = await user_dao.get_by_email(session, email)
         if not user:
             logger.warning("Authentication failed: user not found", extra={"email": email})
             raise InvalidCredentialsError()
@@ -251,7 +245,7 @@ class AuthService:
                 logger.error("Invalid user ID in refresh token", extra={"user_id": user_id_str})
                 raise RefreshTokenNotFoundError() from e
 
-            user = await self.get_user_by_id(session, user_id)
+            user = await user_dao.get_by_id(session, user_id)
             if not user:
                 logger.error(
                     "User not found for refresh token",
@@ -321,36 +315,6 @@ class AuthService:
         except Exception as e:
             logger.error(f"Error revoking refresh token: {e}", exc_info=True)
 
-    async def get_user_by_id(self, session: AsyncSession, user_id: UUID) -> User | None:
-        """
-        Get a user by ID.
-
-        Args:
-            session: Database session
-            user_id: User ID
-
-        Returns:
-            User object or None if not found
-        """
-        stmt = select(User).where(User.id == user_id)
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
-        """
-        Get a user by email.
-
-        Args:
-            session: Database session
-            email: User email address
-
-        Returns:
-            User object or None if not found
-        """
-        stmt = select(User).where(User.email == email)
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
     async def update_user(
         self,
         session: AsyncSession,
@@ -375,22 +339,20 @@ class AuthService:
         """
         if username and username != user.username:
             # Check if username is taken
-            stmt = select(User).where(User.username == username, User.id != user.id)
-            result = await session.execute(stmt)
-            if result.scalar_one_or_none():
+            existing_user = await user_dao.get_by_username(session, username)
+            if existing_user and existing_user.id != user.id:
                 raise UserAlreadyExistsError(username=username)
             user.username = username
 
         if email and email != user.email:
             # Check if email is taken
-            existing_user = await self.get_user_by_email(session, email)
+            existing_user = await user_dao.get_by_email(session, email)
             if existing_user and existing_user.id != user.id:
                 raise UserAlreadyExistsError(email=email)
             user.email = email
 
         user.updated_at = datetime.now(UTC)
-        await session.commit()
-        await session.refresh(user)
+        user = await user_dao.update(session, user)
 
         logger.info("User updated", extra={"user_id": str(user.id)})
 
@@ -416,8 +378,7 @@ class AuthService:
         if role not in user.roles:
             user.roles.append(role)
             user.updated_at = datetime.now(UTC)
-            await session.commit()
-            await session.refresh(user)
+            user = await user_dao.update(session, user)
 
             logger.info(
                 "Role assigned to user",

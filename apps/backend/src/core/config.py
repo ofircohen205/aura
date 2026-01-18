@@ -122,6 +122,26 @@ class Settings(BaseSettings):
         description="Log format (json for production, text for local)",
     )
 
+    # JWT Configuration
+    jwt_secret_key: str = Field(
+        ...,
+        description="Secret key for JWT signing. Must be set via environment variable.",
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        description="JWT algorithm (e.g., HS256, RS256)",
+    )
+    jwt_access_token_expire_minutes: int = Field(
+        default=30,
+        ge=1,
+        description="Access token expiration time in minutes",
+    )
+    jwt_refresh_token_expire_days: int = Field(
+        default=7,
+        ge=1,
+        description="Refresh token expiration time in days",
+    )
+
     @field_validator("cors_allow_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
