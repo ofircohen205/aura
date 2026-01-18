@@ -5,6 +5,7 @@ Centralized configuration using Pydantic Settings with environment-based overrid
 Supports .env.local, .env.staging, and .env.production files.
 """
 
+import json
 import os
 from enum import Enum
 from functools import lru_cache
@@ -142,6 +143,34 @@ class Settings(BaseSettings):
         description="Refresh token expiration time in days",
     )
 
+    # Rate Limiting Configuration
+    rate_limit_enabled: bool = Field(
+        default=True,
+        description="Enable rate limiting middleware",
+    )
+    rate_limit_requests: int = Field(
+        default=100,
+        ge=1,
+        description="Default number of requests per time window",
+    )
+    rate_limit_window: int = Field(
+        default=60,
+        ge=1,
+        description="Default time window in seconds",
+    )
+    rate_limit_redis_enabled: bool = Field(
+        default=True,
+        description="Enable Redis for rate limiting (required for distributed rate limiting)",
+    )
+    rate_limit_endpoints: dict[str, dict[str, int]] = Field(
+        default_factory=lambda: {
+            "/api/v1/workflows/struggle": {"requests": 50, "window": 60},
+            "/api/v1/workflows/audit": {"requests": 30, "window": 60},
+            "/api/v1/workflows": {"requests": 100, "window": 60},
+        },
+        description="Per-endpoint rate limit configuration (requests per window)",
+    )
+
     @field_validator("cors_allow_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
@@ -170,6 +199,24 @@ class Settings(BaseSettings):
             if v == "*":
                 return ["*"]
             return [header.strip() for header in v.split(",") if header.strip()]
+        return v
+
+    @field_validator("rate_limit_endpoints", mode="before")
+    @classmethod
+    def parse_rate_limit_endpoints(
+        cls, v: str | dict[str, dict[str, int]]
+    ) -> dict[str, dict[str, int]]:
+        r"""
+        Parse rate limit endpoints from JSON string or dict.
+
+        Environment variable format: JSON string like:
+        '{"\/api\/v1\/workflows\/struggle": {"requests": 50, "window": 60}}'
+        """
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON format for rate_limit_endpoints: {e}") from e
         return v
 
     @field_validator("cors_allow_origins")
