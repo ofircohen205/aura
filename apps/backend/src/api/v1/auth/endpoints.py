@@ -24,7 +24,7 @@ from db.database import AsyncSession, SessionDep
 from db.models.user import User
 from services.auth.service import auth_service
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 
 @router.post(
