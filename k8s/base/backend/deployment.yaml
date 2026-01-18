@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+    component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+      component: api
+  template:
+    metadata:
+      labels:
+        app: backend
+        component: api
+    spec:
+      serviceAccountName: backend-service-account
+      containers:
+        - name: backend
+          image: aura-backend:latest
+          imagePullPolicy: IfNotPresent # Override in overlays for production
+          # Command uses uv (from Dockerfile CMD: uv run python -m uvicorn ...)
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: ENVIRONMENT
+            - name: POSTGRES_DB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: postgres-db-uri
+            - name: POSTGRES_POOL_MAX_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: POSTGRES_POOL_MAX_SIZE
+            - name: POSTGRES_POOL_MIN_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: POSTGRES_POOL_MIN_SIZE
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: LOG_LEVEL
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: LOG_FORMAT
+            - name: API_TITLE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: API_TITLE
+            - name: API_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: API_VERSION
+            - name: CORS_ALLOW_METHODS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: CORS_ALLOW_METHODS
+            - name: CORS_ALLOW_HEADERS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: CORS_ALLOW_HEADERS
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30

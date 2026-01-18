@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: backend
+          # Development: enable hot-reload
+          # Note: For kind, hot-reload requires rebuilding images or using sync tools
+          # Volume mounts don't work well with kind, so we use the dev image with code baked in
+          # For true hot-reload, use tools like Skaffold or Tilt, or rebuild images frequently
+          command:
+            - /bin/uv
+            - run
+            - python
+            - -m
+            - uvicorn
+            - apps.backend.src.main:app
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --reload
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: ENVIRONMENT
+            - name: POSTGRES_DB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: postgres-db-uri
+            - name: POSTGRES_POOL_MAX_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: POSTGRES_POOL_MAX_SIZE
+            - name: POSTGRES_POOL_MIN_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: POSTGRES_POOL_MIN_SIZE
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: LOG_LEVEL
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: LOG_FORMAT
+            - name: API_TITLE
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: API_TITLE
+            - name: API_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: API_VERSION
+            - name: CORS_ALLOW_METHODS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: CORS_ALLOW_METHODS
+            - name: CORS_ALLOW_HEADERS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: CORS_ALLOW_HEADERS
+            - name: PYTHONPATH
+              value: "/app/libs/core-py/src:/app/apps/backend/src"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi

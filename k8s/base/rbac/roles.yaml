@@ -1,0 +1,22 @@
+# Roles define what actions can be performed on what resources
+# For Aura, we keep it minimal - services don't need extensive permissions
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backend-role
+rules:
+  # Backend may need to read ConfigMaps and Secrets in its namespace
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: web-dashboard-role
+rules:
+  # Web dashboard may need to read ConfigMaps in its namespace
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]

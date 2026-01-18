@@ -21,6 +21,7 @@ from core.exceptions import (
     generic_exception_handler,
 )
 from core.logging import CorrelationIDMiddleware, RequestLoggingMiddleware, setup_logging
+
 from db.database import async_engine, close_db, init_db
 
 # Initialize logging

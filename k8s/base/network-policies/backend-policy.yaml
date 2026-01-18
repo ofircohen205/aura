@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+      component: api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from web-dashboard
+    - from:
+        - podSelector:
+            matchLabels:
+              app: web-dashboard
+              component: frontend
+      ports:
+        - protocol: TCP
+          port: 8000
+    # Allow ingress from ingress controller (for production)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    # Allow egress to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow HTTPS for external API calls
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443

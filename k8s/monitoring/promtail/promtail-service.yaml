@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: promtail
+  namespace: monitoring
+  labels:
+    app: promtail
+    component: logging
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3101
+      targetPort: 3101
+      protocol: TCP
+      name: http
+  selector:
+    app: promtail
+    component: logging

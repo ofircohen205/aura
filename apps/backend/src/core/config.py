@@ -177,6 +177,7 @@ class Settings(BaseSettings):
         description="Per-endpoint rate limit configuration (requests per window)",
     )
 
+
     @field_validator("cors_allow_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: str | list[str]) -> list[str]:

@@ -248,3 +248,78 @@ pull-main:
     git checkout main
     git pull origin main
     git checkout -
+
+# =============================================================================
+# Kubernetes Development Environment
+# =============================================================================
+
+# Build Docker images for Kubernetes
+k8s-build:
+    @echo "Building Docker images for Kubernetes..."
+    @bash k8s/scripts/build-images.sh --dev --prod
+
+# Build development images only
+k8s-build-dev:
+    @echo "Building development images..."
+    @bash k8s/scripts/build-images.sh --dev
+
+# Build production images only
+k8s-build-prod:
+    @echo "Building production images..."
+    @bash k8s/scripts/build-images.sh --prod
+
+# Build and load images into kind
+k8s-build-kind CLUSTER="aura-dev" TAG="dev":
+    @echo "Building and loading images into kind cluster: {{CLUSTER}}"
+    @bash k8s/scripts/build-images.sh --dev --tag {{TAG}}
+    @bash k8s/scripts/load-images-kind.sh {{CLUSTER}} {{TAG}}
+
+# Create kind cluster
+k8s-cluster-create CLUSTER="aura-dev":
+    @echo "Creating kind cluster: {{CLUSTER}}"
+    @bash k8s/scripts/setup-kind.sh {{CLUSTER}}
+
+# Delete kind cluster
+k8s-cluster-delete CLUSTER="aura-dev":
+    @echo "Deleting kind cluster: {{CLUSTER}}"
+    kind delete cluster --name {{CLUSTER}} || echo "Cluster {{CLUSTER}} not found"
+
+# Deploy to Kubernetes
+k8s-deploy ENV="dev":
+    @echo "Deploying to Kubernetes environment: {{ENV}}"
+    @bash k8s/scripts/deploy.sh {{ENV}}
+
+# Full workflow: build, load, deploy
+k8s-dev CLUSTER="aura-dev" TAG="dev":
+    @echo "Complete Kubernetes development workflow..."
+    @just k8s-build-kind {{CLUSTER}} {{TAG}}
+    @just k8s-deploy dev
+
+# Push images to registry
+k8s-push TAG="latest" OWNER="ofircohen205":
+    @echo "Pushing images to GitHub Container Registry..."
+    @bash k8s/scripts/push-images.sh --tag {{TAG}} --owner {{OWNER}}
+
+# Setup complete development environment
+k8s-dev-setup CLUSTER="aura-dev":
+    @echo "Setting up complete Kubernetes development environment..."
+    @bash k8s/scripts/dev-setup.sh {{CLUSTER}}
+
+# Clean up development environment
+k8s-dev-clean CLUSTER="aura-dev":
+    @echo "Cleaning up Kubernetes development environment..."
+    @bash k8s/scripts/dev-clean.sh {{CLUSTER}}
+
+# Deploy monitoring stack (Loki, Prometheus, Grafana, AlertManager)
+k8s-monitoring-setup:
+    @echo "Deploying monitoring stack..."
+    @bash k8s/scripts/setup-monitoring.sh
+
+# Rollback deployment
+k8s-rollback ENV="production" DEPLOYMENT="backend":
+    @echo "Rolling back {{DEPLOYMENT}} in {{ENV}}..."
+    @bash k8s/scripts/rollback.sh {{ENV}} {{DEPLOYMENT}}
+
+# View pod status
+k8s-status NAMESPACE="" SERVICE="":
+    @bash k8s/scripts/pod-status.sh {{NAMESPACE}} {{SERVICE}}
