@@ -265,7 +265,7 @@ def get_settings() -> Settings:
     env_file = env_file if env_file and os.path.exists(env_file) else None
 
     return Settings(
-        _env_file=env_file,
+        _env_file=env_file,  # type: ignore[call-arg]
         environment=env,  # type: ignore[arg-type]
     )
 

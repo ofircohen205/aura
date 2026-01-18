@@ -5,7 +5,7 @@ Abstract base class for Data Access Objects.
 Provides common CRUD operations for SQLModel entities.
 """
 
-from typing import Generic, TypeVar
+from typing import TypeVar
 from uuid import UUID
 
 from sqlmodel import SQLModel, select

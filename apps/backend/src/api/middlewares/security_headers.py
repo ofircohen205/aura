@@ -50,7 +50,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # Permissions Policy (formerly Feature Policy)
         response.headers["Permissions-Policy"] = (
-            "geolocation=(), " "microphone=(), " "camera=(), " "payment=(), " "usb=()"
+            "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
         )
 
         return response
