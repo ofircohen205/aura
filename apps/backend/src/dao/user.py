@@ -11,7 +11,7 @@ from db.database import AsyncSession
 from db.models.user import User
 
 
-class UserDAO(BaseDAO[User]):
+class UserDAO(BaseDAO):
     """
     Data Access Object for User model.
 

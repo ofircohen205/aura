@@ -5,7 +5,7 @@ Abstract base class for Data Access Objects.
 Provides common CRUD operations for SQLModel entities.
 """
 
-from typing import Generic, TypeVar
+from typing import TypeVar
 from uuid import UUID
 
 from sqlmodel import SQLModel, func, select
@@ -16,7 +16,7 @@ from db.database import AsyncSession
 TModel = TypeVar("TModel", bound=SQLModel)
 
 
-class BaseDAO(Generic[TModel]):
+class BaseDAO:
     """
     Base Data Access Object for database operations.
 
@@ -28,7 +28,7 @@ class BaseDAO(Generic[TModel]):
 
     Example:
         ```python
-        class UserDAO(BaseDAO[User]):
+        class UserDAO(BaseDAO):
             async def get_by_email(self, session: AsyncSession, email: str) -> User | None:
                 stmt = select(User).where(User.email == email)
                 result = await session.execute(stmt)
