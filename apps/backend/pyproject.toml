@@ -88,5 +88,9 @@ module = [
     "langgraph_checkpoint_postgres.*",
     "redis.*",
     "redis.asyncio.*",
+    "bcrypt.*",
+    "jose.*",
+    "yaml.*",
+    "fastapi.*",
 ]
 ignore_missing_imports = true

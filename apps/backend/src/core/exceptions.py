@@ -132,7 +132,7 @@ def create_error_response(
 
 async def application_exception_handler(
     request: Request,
-    exc: BaseApplicationException,
+    exc: Exception,
 ) -> JSONResponse:
     """
     Global exception handler for BaseApplicationException.
@@ -144,10 +144,18 @@ async def application_exception_handler(
     Returns:
         JSONResponse with error details
     """
+    # Type narrowing: we know this is BaseApplicationException from the handler registration
+    if not isinstance(exc, BaseApplicationException):
+        # This shouldn't happen, but handle gracefully
+        raise TypeError(f"Expected BaseApplicationException, got {type(exc)}")
+
+    # Type narrowing ensures exc is BaseApplicationException here
+    app_exc: BaseApplicationException = exc
+
     # Try to get correlation ID from request state (set by logging middleware)
     correlation_id = getattr(request.state, "correlation_id", None)
 
-    return create_error_response(request, exc, correlation_id)
+    return create_error_response(request, app_exc, correlation_id)
 
 
 async def generic_exception_handler(
