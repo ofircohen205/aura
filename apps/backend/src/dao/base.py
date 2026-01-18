@@ -8,9 +8,9 @@ Provides common CRUD operations for SQLModel entities.
 from typing import Generic, TypeVar
 from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, select
+
+from db.database import AsyncSession
 
 # Type variables for generic DAO
 TModel = TypeVar("TModel", bound=SQLModel)

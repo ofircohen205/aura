@@ -8,7 +8,6 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from loguru import logger
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import get_settings
 from core.redis_client import get_redis_client
@@ -19,6 +18,7 @@ from core.security import (
     verify_password,
 )
 from dao.user import user_dao
+from db.database import AsyncSession
 from db.models.user import User
 from services.auth.exceptions import (
     InactiveUserError,

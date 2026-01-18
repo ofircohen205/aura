@@ -4,10 +4,10 @@ User DAO
 Data Access Object for user database operations.
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from dao.base import BaseDAO
+from db.database import AsyncSession
 from db.models.user import User
 
 

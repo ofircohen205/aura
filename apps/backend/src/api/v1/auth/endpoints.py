@@ -3,7 +3,6 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.v1.auth.exceptions import register_exception_handlers
 from api.v1.auth.schemas import (
@@ -15,7 +14,7 @@ from api.v1.auth.schemas import (
     UserUpdate,
 )
 from core.dependencies import get_current_active_user
-from db.database import SessionDep
+from db.database import AsyncSession, SessionDep
 from db.models.user import User
 from services.auth.service import auth_service
 

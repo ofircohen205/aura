@@ -8,13 +8,12 @@ from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import get_settings
 from core.exceptions import ForbiddenError, UnauthorizedError
 from core.security import verify_jwt_token
 from dao.user import user_dao
-from db.database import SessionDep
+from db.database import AsyncSession, SessionDep
 from db.models.user import User
 from services.auth.service import auth_service
 
