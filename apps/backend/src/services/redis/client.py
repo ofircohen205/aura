@@ -1,5 +1,5 @@
 """
-Redis Client Utilities
+Redis Client
 
 Provides Redis client for authentication and other services.
 Uses connection pooling and handles errors gracefully.

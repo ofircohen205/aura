@@ -10,7 +10,6 @@ from uuid import UUID
 from loguru import logger
 
 from core.config import get_settings
-from core.redis_client import get_redis_client
 from core.security import (
     create_jwt_token,
     create_refresh_token,
@@ -26,6 +25,7 @@ from services.auth.exceptions import (
     RefreshTokenNotFoundError,
     UserAlreadyExistsError,
 )
+from services.redis import get_redis_client
 
 settings = get_settings()
 
