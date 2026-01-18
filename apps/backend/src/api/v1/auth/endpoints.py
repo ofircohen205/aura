@@ -15,7 +15,7 @@ from api.v1.auth.schemas import (
     UserUpdate,
 )
 from core.dependencies import get_current_active_user
-from db.database import get_session
+from db.database import SessionDep
 from db.models.user import User
 from services.auth.service import auth_service
 
@@ -36,7 +36,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 )
 async def register(
     user_data: UserRegister,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, SessionDep],
 ) -> UserResponse:
     """
     Register a new user.
@@ -68,7 +68,7 @@ async def register(
 )
 async def login(
     credentials: UserLogin,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, SessionDep],
 ) -> TokenResponse:
     """
     Authenticate a user and receive tokens.
@@ -108,7 +108,7 @@ async def login(
 )
 async def refresh(
     token_data: RefreshTokenRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, SessionDep],
 ) -> TokenResponse:
     """
     Refresh an access token.
@@ -139,7 +139,7 @@ async def refresh(
 )
 async def logout(
     token_data: RefreshTokenRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, SessionDep],
 ) -> dict[str, str]:
     """
     Log out a user by revoking their refresh token.
@@ -190,7 +190,7 @@ async def get_current_user_profile(
 async def update_current_user_profile(
     user_update: UserUpdate,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, SessionDep],
 ) -> UserResponse:
     """
     Update the current user's profile.

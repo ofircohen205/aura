@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import get_settings
 from core.exceptions import ForbiddenError, UnauthorizedError
 from core.security import verify_jwt_token
-from db.database import get_session
+from dao.user import user_dao
+from db.database import SessionDep
 from db.models.user import User
 from services.auth.service import auth_service
 
@@ -21,7 +22,7 @@ settings = get_settings()
 
 
 async def get_current_user(
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, SessionDep],
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
     """
@@ -72,7 +73,7 @@ async def get_current_user(
     except ValueError as e:
         raise UnauthorizedError("Invalid user ID in token") from e
 
-    user = await auth_service.get_user_by_id(session, user_id)
+    user = await user_dao.get_by_id(session, user_id)
     if not user:
         raise UnauthorizedError("User not found")
 
