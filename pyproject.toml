@@ -3,7 +3,9 @@ name = "aura"
 version = "0.1.0"
 description = "Aura Monorepo"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "ruff>=0.14.11",
+]
 
 [tool.uv.workspace]
 members = ["apps/backend", "clients/cli", "libs/core-py"]

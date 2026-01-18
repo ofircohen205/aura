@@ -274,7 +274,7 @@ class AuthService:
             RefreshTokenNotFoundError: If user not found
             InactiveUserError: If user is inactive
         """
-        user = await user_dao.get_by_id(session, user_id)
+        user: User | None = await user_dao.get_by_id(session, user_id)
         redis_key = f"refresh_token:{refresh_token_str}"
 
         if not user:
@@ -531,7 +531,7 @@ class AuthService:
         for idx, update_data in enumerate(updates):
             try:
                 user_id = UUID(update_data["id"])
-                user = await user_dao.get_by_id(session, user_id)
+                user: User | None = await user_dao.get_by_id(session, user_id)
                 if not user:
                     errors.append(
                         {
@@ -589,7 +589,7 @@ class AuthService:
 
         for idx, user_id in enumerate(user_ids):
             try:
-                user = await user_dao.get_by_id(session, user_id)
+                user: User | None = await user_dao.get_by_id(session, user_id)
                 if not user:
                     errors.append(
                         {

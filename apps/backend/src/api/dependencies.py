@@ -72,7 +72,7 @@ async def get_current_user(
     except ValueError as e:
         raise UnauthorizedError("Invalid user ID in token") from e
 
-    user = await user_dao.get_by_id(session, user_id)
+    user: User | None = await user_dao.get_by_id(session, user_id)
     if not user:
         raise UnauthorizedError("User not found")
 

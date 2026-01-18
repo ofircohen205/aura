@@ -138,3 +138,4 @@ Implement a complete feature for user notifications
 4. **Iterate**: Start with one role, then bring in others as needed
 5. **Customize**: Adapt roles to project-specific needs when necessary
 6. **NEVER COMMIT BEFORE PRE-COMMIT PASSES!!**
+7. **ALWAYS EXECUTE `just ci-check` BEFORE COMMITTING!!**

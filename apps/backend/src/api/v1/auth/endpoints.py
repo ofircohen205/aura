@@ -268,9 +268,9 @@ async def update_current_user_profile(
     },
 )
 async def list_users(
-    pagination: PaginationParams = Depends(),
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
-    session: Annotated[AsyncSession, SessionDep] = None,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    session: Annotated[AsyncSession, SessionDep],
+    pagination: PaginationParams = Depends(),  # type: ignore[misc]
 ) -> PaginatedResponse:
     """
     List all users with pagination.
@@ -286,7 +286,7 @@ async def list_users(
         raise ForbiddenError("Admin role required to list users")
 
     # Get users with pagination
-    users = await user_dao.get_all(
+    users: list[User] = await user_dao.get_all(
         session=session,
         limit=pagination.limit,
         offset=pagination.offset,
@@ -320,8 +320,8 @@ async def list_users(
 )
 async def bulk_create_users(
     bulk_data: BulkUserCreate,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
-    session: Annotated[AsyncSession, SessionDep] = None,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    session: Annotated[AsyncSession, SessionDep],
 ) -> BulkOperationResponse:
     """
     Create multiple users in bulk.
@@ -366,8 +366,8 @@ async def bulk_create_users(
 )
 async def bulk_update_users(
     bulk_data: BulkUserUpdate,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
-    session: Annotated[AsyncSession, SessionDep] = None,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    session: Annotated[AsyncSession, SessionDep],
 ) -> BulkOperationResponse:
     """
     Update multiple users in bulk.
@@ -406,8 +406,8 @@ async def bulk_update_users(
 )
 async def bulk_delete_users(
     bulk_data: BulkUserDelete,
-    current_user: Annotated[User, Depends(get_current_active_user)] = None,
-    session: Annotated[AsyncSession, SessionDep] = None,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    session: Annotated[AsyncSession, SessionDep],
 ) -> BulkOperationResponse:
     """
     Delete multiple users in bulk.
