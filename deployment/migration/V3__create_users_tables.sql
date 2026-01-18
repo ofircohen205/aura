@@ -19,5 +19,13 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(email);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username ON users(username);
 
+-- Composite index for common query patterns (email + is_active)
+-- Useful for queries filtering by email and active status
+CREATE INDEX IF NOT EXISTS idx_users_email_active ON users(email, is_active);
+
+-- Composite index for user listing queries (is_active + created_at)
+-- Useful for paginated user listings with active status filter
+CREATE INDEX IF NOT EXISTS idx_users_active_created ON users(is_active, created_at);
+
 -- Note: Refresh tokens are stored in Redis, not in the database.
 -- The refresh_tokens table is not needed and has been removed from this migration.

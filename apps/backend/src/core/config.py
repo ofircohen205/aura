@@ -143,6 +143,12 @@ class Settings(BaseSettings):
         description="Refresh token expiration time in days",
     )
 
+    # CSRF Protection Configuration
+    csrf_protection_enabled: bool = Field(
+        default=True,
+        description="Enable CSRF protection middleware",
+    )
+
     # Rate Limiting Configuration
     rate_limit_enabled: bool = Field(
         default=True,

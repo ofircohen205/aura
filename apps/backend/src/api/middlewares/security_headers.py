@@ -9,6 +9,10 @@ from collections.abc import Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from core.config import get_settings
+
+settings = get_settings()
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
@@ -52,5 +56,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
         )
+
+        # HSTS (HTTP Strict Transport Security) - only in production
+        # Prevents protocol downgrade attacks and cookie hijacking
+        if settings.environment.value == "production":
+            # max-age=31536000 = 1 year
+            # includeSubDomains = apply to all subdomains
+            # preload = allow inclusion in HSTS preload lists
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains; preload"
+            )
 
         return response

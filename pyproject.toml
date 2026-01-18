@@ -9,11 +9,11 @@ dependencies = []
 members = ["apps/backend", "clients/cli", "libs/core-py"]
 
 [tool.uv.sources]
-cli = { workspace = true, editable = true }
+aura-cli = { workspace = true, editable = true }
 
 [dependency-groups]
 dev = [
-    "cli",
+    "aura-cli",
     "ruff>=0.6.4",
     "mypy>=1.11.2",
     "pre-commit>=3.7.0",

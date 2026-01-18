@@ -5,10 +5,10 @@ Abstract base class for Data Access Objects.
 Provides common CRUD operations for SQLModel entities.
 """
 
-from typing import TypeVar
+from typing import Generic, TypeVar
 from uuid import UUID
 
-from sqlmodel import SQLModel, select
+from sqlmodel import SQLModel, func, select
 
 from db.database import AsyncSession
 
@@ -142,3 +142,17 @@ class BaseDAO(Generic[TModel]):
             stmt = stmt.limit(limit).offset(offset)
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count(self, session: AsyncSession) -> int:
+        """
+        Count total number of entities.
+
+        Args:
+            session: Database session
+
+        Returns:
+            Total count of entities
+        """
+        stmt = select(func.count()).select_from(self.model)  # type: ignore[arg-type]
+        result = await session.execute(stmt)
+        return result.scalar_one() or 0

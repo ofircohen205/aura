@@ -24,6 +24,11 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v"
 asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests (isolated, mocked dependencies)",
+    "integration: Integration tests (require database/Redis)",
+    "e2e: End-to-end tests (require full stack)",
+]
 
 [tool.uv.sources]
 core-py = { workspace = true }

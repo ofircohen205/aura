@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 # Import conf first to set up paths
 import conf  # noqa: F401
-from api.middlewares import RateLimitMiddleware
+from api.middlewares import CSRFProtectionMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from api.v1.audit.endpoints import create_audit_app
 from api.v1.events.endpoints import create_events_app
 from api.v1.workflows.endpoints import create_workflows_app
@@ -46,6 +46,9 @@ app = FastAPI(
 
 # Add middleware (order matters - first added is outermost)
 app.add_middleware(CorrelationIDMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)  # Security headers first
+if settings.csrf_protection_enabled:
+    app.add_middleware(CSRFProtectionMiddleware)  # CSRF protection
 app.add_middleware(RateLimitMiddleware)  # Rate limiting before logging
 app.add_middleware(RequestLoggingMiddleware)
 

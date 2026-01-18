@@ -29,13 +29,10 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Copy built application from builder
-# Standard Next.js build output
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/package.json ./package.json
-
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Using Next.js standalone output for optimized production builds
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/.next/static ./apps/web-dashboard/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/public ./apps/web-dashboard/public
 
 USER nextjs
 
@@ -44,5 +41,6 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Start the application
-CMD ["npm", "start"]
+# Start the application using the standalone server
+WORKDIR /app/apps/web-dashboard
+CMD ["node", "server.js"]

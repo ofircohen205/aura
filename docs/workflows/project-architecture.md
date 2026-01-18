@@ -6,7 +6,7 @@
    - Configuration management (config.py): Uses Pydantic Settings to fetch values from .env.local/staging/production and creates a global configuration object
    - Exception handling (exceptions.py): Base exception classes and HTTP exception mapping utilities
    - Logging infrastructure (logging.py): Structured logging with loguru, request/response middleware, and correlation IDs
-   - Security utilities (security.py): JWT utilities (placeholder for future auth), password hashing functions
+   - Security utilities (security.py): JWT token creation/verification, password hashing (bcrypt), refresh token generation
 
 2. **Database Layer** (`src/db/`)
    - SQLModel/ORM models (each DB table will have its own python file under `models` directory)
@@ -17,6 +17,13 @@
    - The only place that talks with the DB.
    - Database operations abstraction (BaseDAO in base.py)
    - Each DB table has its own class (inherits BaseDAO), must implement base queries, can add specific queries.
+   - Current DAO modules:
+     ```text
+     ├── dao/
+     │   ├── __init__.py
+     │   ├── base.py (BaseDAO with CRUD operations)
+     │   ├── user.py (UserDAO)
+     ```
 
 4. **Service Layer** (`src/services/`)
    - Business logic extraction from API endpoints
@@ -26,6 +33,13 @@
    - Current service modules:
      ```text
      ├── services/
+     │   ├── auth/
+     │   │   ├── __init__.py
+     │   │   ├── exceptions.py
+     │   │   ├── service.py
+     │   ├── redis/
+     │   │   ├── __init__.py
+     │   │   ├── client.py
      │   ├── workflows/
      │   │   ├── __init__.py
      │   │   ├── exceptions.py
@@ -48,6 +62,11 @@
    - Current API structure:
      ```text
      ├── v1/
+     │   ├── auth/
+     │   │   ├── __init__.py
+     │   │   ├── endpoints.py
+     │   │   ├── exceptions.py
+     │   │   ├── schemas.py
      │   ├── workflows/
      │   │   ├── __init__.py
      │   │   ├── endpoints.py
@@ -64,6 +83,13 @@
      │   │   ├── exceptions.py
      │   │   ├── schemas.py
      ```
+   - Middleware (`src/api/middlewares/`):
+     - Security headers middleware
+     - CSRF protection middleware
+     - Rate limiting middleware
+   - Dependencies (`src/api/dependencies.py`):
+     - Authentication dependencies
+     - Authorization dependencies
 
 6. **Jobs Layer** (`src/jobs/`)
    - For example: Data Pipeline (ETL) job, Clean-up data job, etc.
