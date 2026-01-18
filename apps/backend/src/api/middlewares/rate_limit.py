@@ -14,13 +14,12 @@ from fastapi import HTTPException, Request, Response, status
 from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from services.redis import REDIS_RATE_LIMIT_DB, get_redis_client, test_redis_connection
+
 # Rate limiting configuration
 RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))  # Requests per window
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))  # Time window in seconds
-RATE_LIMIT_REDIS_URL = os.getenv(
-    "RATE_LIMIT_REDIS_URL", os.getenv("REDIS_URL", "redis://localhost:6379/1")
-)
 RATE_LIMIT_REDIS_ENABLED = os.getenv("RATE_LIMIT_REDIS_ENABLED", "true").lower() == "true"
 
 # Per-endpoint rate limits (requests per window)
@@ -29,75 +28,6 @@ ENDPOINT_LIMITS: dict[str, dict[str, int]] = {
     "/api/v1/workflows/audit": {"requests": 30, "window": 60},
     "/api/v1/workflows": {"requests": 100, "window": 60},  # Default for all workflow endpoints
 }
-
-# Redis client (lazy initialization)
-_redis_client = None
-_redis_available = False
-
-
-def _get_redis_client():
-    """
-    Get or create Redis client for rate limiting.
-
-    Returns:
-        Redis client instance or None if Redis is unavailable
-    """
-    global _redis_client, _redis_available
-
-    if not RATE_LIMIT_REDIS_ENABLED:
-        return None
-
-    if _redis_client is not None:
-        return _redis_client
-
-    try:
-        import redis.asyncio as redis  # type: ignore[import-untyped]
-        from redis.asyncio.connection import ConnectionPool  # type: ignore[import-untyped]
-
-        pool = ConnectionPool.from_url(
-            RATE_LIMIT_REDIS_URL,
-            max_connections=10,
-            decode_responses=True,
-        )
-
-        _redis_client = redis.Redis(connection_pool=pool)
-        _redis_available = True
-        logger.info(
-            "Redis client initialized for rate limiting",
-            extra={"redis_url": RATE_LIMIT_REDIS_URL.split("@")[-1]},
-        )
-        return _redis_client
-
-    except ImportError:
-        logger.warning("redis package not installed, rate limiting disabled")
-        _redis_available = False
-        return None
-    except Exception as e:
-        logger.warning(
-            f"Failed to initialize Redis for rate limiting, disabling: {e}", exc_info=True
-        )
-        _redis_available = False
-        return None
-
-
-async def _test_redis_connection() -> bool:
-    """
-    Test Redis connection availability.
-
-    Returns:
-        True if Redis is available and connected, False otherwise
-    """
-    if not RATE_LIMIT_REDIS_ENABLED:
-        return False
-
-    try:
-        client = _get_redis_client()
-        if client is None:
-            return False
-        await client.ping()
-        return True
-    except Exception:
-        return False
 
 
 def _get_client_id(request: Request) -> str:
@@ -162,7 +92,10 @@ async def _refill_tokens_redis(
     Returns:
         Current number of tokens after refill
     """
-    client = _get_redis_client()
+    if not RATE_LIMIT_REDIS_ENABLED:
+        return 0.0
+
+    client = await get_redis_client(REDIS_RATE_LIMIT_DB)
     if client is None:
         return 0.0
 
@@ -228,7 +161,10 @@ async def _consume_token_redis(client_id: str, endpoint: str) -> bool:
 
     if tokens >= 1.0:
         # Consume one token
-        client = _get_redis_client()
+        if not RATE_LIMIT_REDIS_ENABLED:
+            return False
+
+        client = await get_redis_client(REDIS_RATE_LIMIT_DB)
         if client is None:
             return False
 
@@ -273,16 +209,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Check Redis availability
-        if not _redis_available and RATE_LIMIT_REDIS_ENABLED:
-            # Test connection on first request
-            if await _test_redis_connection():
-                pass  # Connection successful
-            else:
-                logger.warning(
-                    "Rate limiting disabled: Redis unavailable. "
-                    "Set RATE_LIMIT_REDIS_ENABLED=false to suppress this warning."
-                )
-                return await call_next(request)
+        if RATE_LIMIT_REDIS_ENABLED and not await test_redis_connection(REDIS_RATE_LIMIT_DB):
+            logger.warning(
+                "Rate limiting disabled: Redis unavailable. "
+                "Set RATE_LIMIT_REDIS_ENABLED=false to suppress this warning."
+            )
+            return await call_next(request)
 
         client_id = _get_client_id(request)
         endpoint = _get_endpoint_key(request.url.path)
