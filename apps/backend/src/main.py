@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 # Import conf first to set up paths
 import conf  # noqa: F401
+from api.middleware import RateLimitMiddleware
 from api.v1.audit.endpoints import create_audit_app
 from api.v1.events.endpoints import create_events_app
 from api.v1.workflows.endpoints import create_workflows_app
@@ -19,7 +20,6 @@ from core.exceptions import (
     generic_exception_handler,
 )
 from core.logging import CorrelationIDMiddleware, RequestLoggingMiddleware, setup_logging
-from core.rate_limit import RateLimitMiddleware
 from db.database import async_engine, close_db, init_db
 
 # Initialize logging

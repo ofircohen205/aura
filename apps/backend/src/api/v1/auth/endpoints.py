@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, status
 
+from api.dependencies import get_current_active_user
 from api.v1.auth.exceptions import register_exception_handlers
 from api.v1.auth.schemas import (
     RefreshTokenRequest,
@@ -13,7 +14,6 @@ from api.v1.auth.schemas import (
     UserResponse,
     UserUpdate,
 )
-from core.dependencies import get_current_active_user
 from db.database import AsyncSession, SessionDep
 from db.models.user import User
 from services.auth.service import auth_service

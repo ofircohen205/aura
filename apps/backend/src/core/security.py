@@ -98,7 +98,7 @@ def create_jwt_token(
     Returns:
         JWT token string
 
-    Example:
+        Example:
         ```python
         payload = {"sub": "user_id", "email": "user@example.com"}
         token = create_jwt_token(payload, secret_key, expires_delta=timedelta(minutes=30))
@@ -136,7 +136,7 @@ def verify_jwt_token(
     Returns:
         Decoded payload if valid, None if invalid or expired
 
-    Example:
+        Example:
         ```python
         payload = verify_jwt_token(token, secret_key)
         if payload:
