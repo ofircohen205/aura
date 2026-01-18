@@ -21,11 +21,11 @@ from core.exceptions import (
     generic_exception_handler,
 )
 from core.logging import CorrelationIDMiddleware, RequestLoggingMiddleware, setup_logging
-
 from db.database import async_engine, close_db, init_db
 
 # Initialize logging
 setup_logging()
+
 
 settings = get_settings()
 
@@ -78,6 +78,17 @@ app.mount("/api/v1/events", events_app)
 app.mount("/api/v1/audit", audit_app)
 
 
+# Prometheus metrics
+try:
+    from prometheus_client import make_asgi_app
+
+    metrics_app = make_asgi_app()
+    app.mount("/metrics", metrics_app)
+except ImportError:
+    # Prometheus client not installed, metrics disabled
+    pass
+
+
 @app.get("/health")
 async def health_check():
     """
@@ -120,3 +131,66 @@ async def cache_health_check():
             "status": "error",
             "error": str(e),
         }
+
+
+@app.get("/health/redis")
+async def redis_health_check():
+    """
+    Health check endpoint for Redis connectivity.
+
+    Checks connectivity for both auth and rate limiting Redis databases.
+
+    Returns:
+        dict: Redis health status with connection details for each database
+    """
+    from services.redis import REDIS_AUTH_DB, REDIS_RATE_LIMIT_DB, test_redis_connection
+
+    health_status = {
+        "status": "ok",
+        "redis": {
+            "auth_db": {
+                "database": REDIS_AUTH_DB,
+                "connected": False,
+            },
+            "rate_limit_db": {
+                "database": REDIS_RATE_LIMIT_DB,
+                "connected": False,
+            },
+        },
+    }
+
+    # Check auth database connection
+    try:
+        auth_connected = await test_redis_connection(REDIS_AUTH_DB)
+        health_status["redis"]["auth_db"]["connected"] = auth_connected
+        if not auth_connected:
+            health_status["status"] = "degraded"
+            logger.warning(f"Redis auth database {REDIS_AUTH_DB} is not connected")
+    except Exception as e:
+        health_status["status"] = "degraded"
+        health_status["redis"]["auth_db"]["error"] = str(e)
+        logger.error(f"Redis auth database health check failed: {e}", exc_info=True)
+
+    # Check rate limiting database connection
+    try:
+        rate_limit_connected = await test_redis_connection(REDIS_RATE_LIMIT_DB)
+        health_status["redis"]["rate_limit_db"]["connected"] = rate_limit_connected
+        if not rate_limit_connected:
+            health_status["status"] = "degraded"
+            logger.warning(f"Redis rate limit database {REDIS_RATE_LIMIT_DB} is not connected")
+    except Exception as e:
+        health_status["status"] = "degraded"
+        health_status["redis"]["rate_limit_db"]["error"] = str(e)
+        logger.error(f"Redis rate limit database health check failed: {e}", exc_info=True)
+
+    # If both databases are unavailable, return 503
+    if (
+        not health_status["redis"]["auth_db"]["connected"]
+        and not health_status["redis"]["rate_limit_db"]["connected"]
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="Service unavailable - Redis connections failed for all databases",
+        )
+
+    return health_status

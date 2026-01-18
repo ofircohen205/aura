@@ -16,8 +16,8 @@ COPY libs libs
 COPY clients clients
 COPY apps/backend apps/backend
 
-# Install dependencies
-RUN uv sync --frozen
+# Install dependencies for the backend package
+RUN uv sync --frozen --package backend
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/libs/core-py/src:/app/apps/backend/src:$PYTHONPATH"

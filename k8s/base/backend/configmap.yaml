@@ -22,5 +22,6 @@ data:
   API_VERSION: "0.1.0"
 
   # CORS Configuration (defaults - override in overlays)
-  CORS_ALLOW_METHODS: "*"
-  CORS_ALLOW_HEADERS: "*"
+  # Note: These must be JSON arrays for pydantic-settings list[str] parsing
+  CORS_ALLOW_METHODS: '["*"]'
+  CORS_ALLOW_HEADERS: '["*"]'
