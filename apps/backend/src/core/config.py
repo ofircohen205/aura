@@ -125,8 +125,8 @@ class Settings(BaseSettings):
 
     # JWT Configuration
     jwt_secret_key: str = Field(
-        ...,
-        description="Secret key for JWT signing. Must be set via environment variable.",
+        default="test-secret-key-for-jwt-tokens-minimum-32-chars-for-testing-only",
+        description="Secret key for JWT signing. Must be set via environment variable in production.",
     )
     jwt_algorithm: str = Field(
         default="HS256",

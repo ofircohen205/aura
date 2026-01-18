@@ -7,7 +7,7 @@ SQLModel definitions for user authentication and authorization.
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Index, UniqueConstraint
+from sqlalchemy import ARRAY, Column, Index, String, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -36,7 +36,8 @@ class User(SQLModel, table=True):  # type: ignore[call-arg]
     is_active: bool = Field(default=True, nullable=False)
     is_verified: bool = Field(default=False, nullable=False)
     roles: list[str] = Field(
-        default_factory=lambda: ["user"], sa_column_kwargs={"type_": "ARRAY(TEXT)"}
+        default_factory=lambda: ["user"],
+        sa_column=Column(ARRAY(String), nullable=False),
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
