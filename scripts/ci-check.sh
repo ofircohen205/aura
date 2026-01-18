@@ -61,8 +61,11 @@ else
 fi
 
 echo "  → Running mypy type checking..."
-if ! uv run mypy apps/backend libs/core-py clients/cli || true; then
-    echo -e "${YELLOW}⚠ Mypy found type issues (non-blocking)${NC}"
+MYPY_OUTPUT=$(uv run mypy apps/backend libs/core-py clients/cli 2>&1 || true)
+MYPY_ERRORS=$(echo "$MYPY_OUTPUT" | grep -c "error:" || true)
+if [ "$MYPY_ERRORS" -gt 0 ]; then
+    echo "$MYPY_OUTPUT" | tail -5
+    echo -e "${YELLOW}⚠ Mypy found $MYPY_ERRORS type errors (non-blocking)${NC}"
 else
     echo -e "${GREEN}✓ Mypy type check passed${NC}"
 fi
@@ -162,32 +165,44 @@ if [ "$SKIP_BUILD" = false ]; then
 
     if [ -d "apps/web-dashboard" ]; then
         echo "  → Building web-dashboard..."
-        if ! cd apps/web-dashboard && npm run build || echo "Build script not configured, skipping"; then
-            echo -e "${YELLOW}⚠ Web-dashboard build completed${NC}"
+        if [ -f "apps/web-dashboard/package.json" ] && grep -q '"build"' apps/web-dashboard/package.json; then
+            if (cd apps/web-dashboard && npm run build); then
+                echo -e "${GREEN}✓ Web-dashboard build passed${NC}"
+            else
+                echo -e "${RED}✗ Web-dashboard build failed${NC}"
+                FAILED=true
+            fi
         else
-            echo -e "${GREEN}✓ Web-dashboard build passed${NC}"
+            echo -e "${YELLOW}⚠ Web-dashboard build script not configured, skipping${NC}"
         fi
-        cd ../..
     fi
 
     if [ -d "clients/vscode" ]; then
         echo "  → Building VSCode extension..."
-        if ! cd clients/vscode && npm run compile || echo "Compile script not configured, skipping"; then
-            echo -e "${YELLOW}⚠ VSCode extension build completed${NC}"
+        if [ -f "clients/vscode/package.json" ] && grep -q '"compile"' clients/vscode/package.json; then
+            if (cd clients/vscode && npm run compile); then
+                echo -e "${GREEN}✓ VSCode extension build passed${NC}"
+            else
+                echo -e "${RED}✗ VSCode extension build failed${NC}"
+                FAILED=true
+            fi
         else
-            echo -e "${GREEN}✓ VSCode extension build passed${NC}"
+            echo -e "${YELLOW}⚠ VSCode extension compile script not configured, skipping${NC}"
         fi
-        cd ../..
     fi
 
     if [ -d "clients/github-app" ]; then
         echo "  → Building GitHub app..."
-        if ! cd clients/github-app && npm run build --if-present || echo "Build script not configured, skipping"; then
-            echo -e "${YELLOW}⚠ GitHub app build completed${NC}"
+        if [ -f "clients/github-app/package.json" ] && grep -q '"build"' clients/github-app/package.json; then
+            if (cd clients/github-app && npm run build); then
+                echo -e "${GREEN}✓ GitHub app build passed${NC}"
+            else
+                echo -e "${RED}✗ GitHub app build failed${NC}"
+                FAILED=true
+            fi
         else
-            echo -e "${GREEN}✓ GitHub app build passed${NC}"
+            echo -e "${YELLOW}⚠ GitHub app build script not configured, skipping${NC}"
         fi
-        cd ../..
     fi
 else
     echo -e "\n${YELLOW}[5/6] Skipping TypeScript build (--skip-build)${NC}"
@@ -199,10 +214,25 @@ fi
 if [ "$SKIP_TESTS" = false ]; then
     echo -e "\n${YELLOW}[6/6] Running TypeScript tests...${NC}"
 
-    if ! npm run test --workspaces --if-present || echo "No test scripts found, skipping"; then
-        echo -e "${YELLOW}⚠ TypeScript tests completed (some workspaces may not have test scripts)${NC}"
-    else
-        echo -e "${GREEN}✓ TypeScript tests passed${NC}"
+    TEST_FAILED=false
+    for workspace in clients/github-app clients/vscode apps/web-dashboard; do
+        if [ -d "$workspace" ] && [ -f "$workspace/package.json" ]; then
+            if grep -q '"test"' "$workspace/package.json"; then
+                workspace_name=$(basename "$workspace")
+                echo "  → Running tests for $workspace_name..."
+                if (cd "$workspace" && npm test 2>&1); then
+                    echo -e "${GREEN}✓ $workspace_name tests passed${NC}"
+                else
+                    echo -e "${RED}✗ $workspace_name tests failed${NC}"
+                    TEST_FAILED=true
+                    FAILED=true
+                fi
+            fi
+        fi
+    done
+
+    if [ "$TEST_FAILED" = false ]; then
+        echo -e "${GREEN}✓ All TypeScript tests passed${NC}"
     fi
 else
     echo -e "\n${YELLOW}[6/6] Skipping TypeScript tests (--skip-tests)${NC}"
