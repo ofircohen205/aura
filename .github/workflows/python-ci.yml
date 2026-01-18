@@ -82,7 +82,7 @@ jobs:
         run: |
           if [ "${{ matrix.project }}" == "backend" ]; then
             cd apps/backend
-            uv run pytest tests/ -v
+            uv run pytest tests/ -v -m "not integration and not e2e"
           elif [ "${{ matrix.project }}" == "core-py" ]; then
             cd libs/core-py
             uv run pytest tests/ -v

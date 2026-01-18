@@ -24,7 +24,7 @@ import conf  # noqa: F401, E402
 # Test configuration
 TEST_EMAIL = "test@example.com"
 TEST_USERNAME = "testuser"
-TEST_PASSWORD = "testpassword123"
+TEST_PASSWORD = "TestPassword123!"  # Must have uppercase, lowercase, digit, and special char
 TEST_SECRET_KEY = "test-secret-key-for-jwt-tokens-minimum-32-chars"
 
 
@@ -103,20 +103,12 @@ def csrf_token(app_client: TestClient) -> str:
 
 
 @pytest.fixture
-def csrf_headers(app_client: TestClient) -> dict[str, str]:
+def csrf_headers(csrf_token: str) -> dict[str, str]:
     """
     Get headers with CSRF token for protected requests.
 
-    Makes a GET request to ensure the CSRF cookie is set in the TestClient.
+    Uses the same token as the csrf_token fixture.
     """
-    # Make a GET request to get the CSRF token cookie
-    response = app_client.get("/health")
-    csrf_token = response.cookies.get("csrf-token")
-    if not csrf_token:
-        # If no cookie was set, generate a token manually
-        import secrets
-
-        csrf_token = secrets.token_urlsafe(32)
     return {"X-CSRF-Token": csrf_token}
 
 
