@@ -8,10 +8,13 @@ dependencies = [
     "asyncpg>=0.29.0",
     "bcrypt>=4.0.0",
     "core-py",
+    "email-validator>=2.0.0",
     "fastapi>=0.128.0",
+    "greenlet>=3.0.0",
     "httpx>=0.28.1",
     "loguru>=0.7.0",
     "pydantic-settings>=2.0.0",
+    "python-jose[cryptography]>=3.3.0",
     "pytest>=9.0.2",
     "pytest-asyncio>=0.24.0",
     "redis>=5.0.0",
@@ -24,6 +27,12 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v"
 asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests (isolated, mocked dependencies)",
+    "integration: Integration tests (require database/Redis)",
+    "e2e: End-to-end tests (require full stack)",
+    "performance: Performance and benchmark tests",
+]
 
 [tool.uv.sources]
 core-py = { workspace = true }
@@ -83,5 +92,9 @@ module = [
     "langgraph_checkpoint_postgres.*",
     "redis.*",
     "redis.asyncio.*",
+    "bcrypt.*",
+    "jose.*",
+    "yaml.*",
+    "fastapi.*",
 ]
 ignore_missing_imports = true

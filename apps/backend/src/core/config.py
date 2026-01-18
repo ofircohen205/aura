@@ -5,6 +5,7 @@ Centralized configuration using Pydantic Settings with environment-based overrid
 Supports .env.local, .env.staging, and .env.production files.
 """
 
+import json
 import os
 from enum import Enum
 from functools import lru_cache
@@ -122,6 +123,60 @@ class Settings(BaseSettings):
         description="Log format (json for production, text for local)",
     )
 
+    # JWT Configuration
+    jwt_secret_key: str = Field(
+        default="test-secret-key-for-jwt-tokens-minimum-32-chars-for-testing-only",
+        description="Secret key for JWT signing. Must be set via environment variable in production.",
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        description="JWT algorithm (e.g., HS256, RS256)",
+    )
+    jwt_access_token_expire_minutes: int = Field(
+        default=30,
+        ge=1,
+        description="Access token expiration time in minutes",
+    )
+    jwt_refresh_token_expire_days: int = Field(
+        default=7,
+        ge=1,
+        description="Refresh token expiration time in days",
+    )
+
+    # CSRF Protection Configuration
+    csrf_protection_enabled: bool = Field(
+        default=True,
+        description="Enable CSRF protection middleware",
+    )
+
+    # Rate Limiting Configuration
+    rate_limit_enabled: bool = Field(
+        default=True,
+        description="Enable rate limiting middleware",
+    )
+    rate_limit_requests: int = Field(
+        default=100,
+        ge=1,
+        description="Default number of requests per time window",
+    )
+    rate_limit_window: int = Field(
+        default=60,
+        ge=1,
+        description="Default time window in seconds",
+    )
+    rate_limit_redis_enabled: bool = Field(
+        default=True,
+        description="Enable Redis for rate limiting (required for distributed rate limiting)",
+    )
+    rate_limit_endpoints: dict[str, dict[str, int]] = Field(
+        default_factory=lambda: {
+            "/api/v1/workflows/struggle": {"requests": 50, "window": 60},
+            "/api/v1/workflows/audit": {"requests": 30, "window": 60},
+            "/api/v1/workflows": {"requests": 100, "window": 60},
+        },
+        description="Per-endpoint rate limit configuration (requests per window)",
+    )
+
     @field_validator("cors_allow_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
@@ -150,6 +205,24 @@ class Settings(BaseSettings):
             if v == "*":
                 return ["*"]
             return [header.strip() for header in v.split(",") if header.strip()]
+        return v
+
+    @field_validator("rate_limit_endpoints", mode="before")
+    @classmethod
+    def parse_rate_limit_endpoints(
+        cls, v: str | dict[str, dict[str, int]]
+    ) -> dict[str, dict[str, int]]:
+        r"""
+        Parse rate limit endpoints from JSON string or dict.
+
+        Environment variable format: JSON string like:
+        '{"\/api\/v1\/workflows\/struggle": {"requests": 50, "window": 60}}'
+        """
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON format for rate_limit_endpoints: {e}") from e
         return v
 
     @field_validator("cors_allow_origins")
@@ -198,7 +271,7 @@ def get_settings() -> Settings:
     env_file = env_file if env_file and os.path.exists(env_file) else None
 
     return Settings(
-        _env_file=env_file,
+        _env_file=env_file,  # type: ignore[call-arg]
         environment=env,  # type: ignore[arg-type]
     )
 

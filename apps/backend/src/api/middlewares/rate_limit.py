@@ -6,7 +6,6 @@ Uses token bucket algorithm with Redis for distributed rate limiting.
 Falls back to disabled rate limiting if Redis is unavailable.
 """
 
-import os
 import time
 from collections.abc import Callable
 
@@ -14,90 +13,8 @@ from fastapi import HTTPException, Request, Response, status
 from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# Rate limiting configuration
-RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
-RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "100"))  # Requests per window
-RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))  # Time window in seconds
-RATE_LIMIT_REDIS_URL = os.getenv(
-    "RATE_LIMIT_REDIS_URL", os.getenv("REDIS_URL", "redis://localhost:6379/1")
-)
-RATE_LIMIT_REDIS_ENABLED = os.getenv("RATE_LIMIT_REDIS_ENABLED", "true").lower() == "true"
-
-# Per-endpoint rate limits (requests per window)
-ENDPOINT_LIMITS: dict[str, dict[str, int]] = {
-    "/api/v1/workflows/struggle": {"requests": 50, "window": 60},
-    "/api/v1/workflows/audit": {"requests": 30, "window": 60},
-    "/api/v1/workflows": {"requests": 100, "window": 60},  # Default for all workflow endpoints
-}
-
-# Redis client (lazy initialization)
-_redis_client = None
-_redis_available = False
-
-
-def _get_redis_client():
-    """
-    Get or create Redis client for rate limiting.
-
-    Returns:
-        Redis client instance or None if Redis is unavailable
-    """
-    global _redis_client, _redis_available
-
-    if not RATE_LIMIT_REDIS_ENABLED:
-        return None
-
-    if _redis_client is not None:
-        return _redis_client
-
-    try:
-        import redis.asyncio as redis  # type: ignore[import-untyped]
-        from redis.asyncio.connection import ConnectionPool  # type: ignore[import-untyped]
-
-        pool = ConnectionPool.from_url(
-            RATE_LIMIT_REDIS_URL,
-            max_connections=10,
-            decode_responses=True,
-        )
-
-        _redis_client = redis.Redis(connection_pool=pool)
-        _redis_available = True
-        logger.info(
-            "Redis client initialized for rate limiting",
-            extra={"redis_url": RATE_LIMIT_REDIS_URL.split("@")[-1]},
-        )
-        return _redis_client
-
-    except ImportError:
-        logger.warning("redis package not installed, rate limiting disabled")
-        _redis_available = False
-        return None
-    except Exception as e:
-        logger.warning(
-            f"Failed to initialize Redis for rate limiting, disabling: {e}", exc_info=True
-        )
-        _redis_available = False
-        return None
-
-
-async def _test_redis_connection() -> bool:
-    """
-    Test Redis connection availability.
-
-    Returns:
-        True if Redis is available and connected, False otherwise
-    """
-    if not RATE_LIMIT_REDIS_ENABLED:
-        return False
-
-    try:
-        client = _get_redis_client()
-        if client is None:
-            return False
-        await client.ping()
-        return True
-    except Exception:
-        return False
+from core.config import get_settings
+from services.redis import REDIS_RATE_LIMIT_DB, get_redis_client, test_redis_connection
 
 
 def _get_client_id(request: Request) -> str:
@@ -124,31 +41,37 @@ def _get_client_id(request: Request) -> str:
     return "unknown"
 
 
-def _get_endpoint_key(path: str) -> str:
+def _get_endpoint_key(path: str, endpoint_limits: dict[str, dict[str, int]]) -> str:
     """
     Get endpoint key for rate limiting configuration.
 
     Args:
         path: Request path
+        endpoint_limits: Dictionary of endpoint patterns to rate limit configs
 
     Returns:
         Endpoint key for rate limit lookup
     """
     # Check for exact match first
-    if path in ENDPOINT_LIMITS:
+    if path in endpoint_limits:
         return path
 
     # Check for prefix match (e.g., /api/v1/workflows matches /api/v1/workflows/audit)
-    for endpoint, _ in sorted(ENDPOINT_LIMITS.items(), key=len, reverse=True):
+    # Sort by length (longest first) to match most specific patterns first
+    for endpoint in sorted(endpoint_limits.keys(), key=len, reverse=True):
         if path.startswith(endpoint):
             return endpoint
 
-    # Default to base path
+    # Default to base API path if no match found
     return "/api/v1/workflows"
 
 
 async def _refill_tokens_redis(
-    client_id: str, endpoint: str, max_tokens: int, window: int
+    client_id: str,
+    endpoint: str,
+    max_tokens: int,
+    window: int,
+    redis_enabled: bool,
 ) -> float:
     """
     Refill token bucket using Redis (distributed token bucket algorithm).
@@ -158,11 +81,15 @@ async def _refill_tokens_redis(
         endpoint: Endpoint path
         max_tokens: Maximum tokens in bucket
         window: Time window in seconds
+        redis_enabled: Whether Redis is enabled for rate limiting
 
     Returns:
         Current number of tokens after refill
     """
-    client = _get_redis_client()
+    if not redis_enabled:
+        return 0.0
+
+    client = await get_redis_client(REDIS_RATE_LIMIT_DB)
     if client is None:
         return 0.0
 
@@ -206,29 +133,43 @@ async def _refill_tokens_redis(
         return 0.0
 
 
-async def _consume_token_redis(client_id: str, endpoint: str) -> bool:
+async def _consume_token_redis(
+    client_id: str,
+    endpoint: str,
+    endpoint_limits: dict[str, dict[str, int]],
+    default_requests: int,
+    default_window: int,
+    redis_enabled: bool,
+) -> bool:
     """
     Consume a token from the Redis bucket.
 
     Args:
         client_id: Client identifier
         endpoint: Endpoint path
+        endpoint_limits: Dictionary of endpoint patterns to rate limit configs
+        default_requests: Default number of requests per window
+        default_window: Default time window in seconds
+        redis_enabled: Whether Redis is enabled for rate limiting
 
     Returns:
         True if token was consumed, False if bucket is empty
     """
-    limit_config = ENDPOINT_LIMITS.get(
-        endpoint, {"requests": RATE_LIMIT_REQUESTS, "window": RATE_LIMIT_WINDOW}
+    limit_config = endpoint_limits.get(
+        endpoint, {"requests": default_requests, "window": default_window}
     )
     max_tokens = limit_config["requests"]
     window = limit_config["window"]
 
     # Refill tokens
-    tokens = await _refill_tokens_redis(client_id, endpoint, max_tokens, window)
+    tokens = await _refill_tokens_redis(client_id, endpoint, max_tokens, window, redis_enabled)
 
     if tokens >= 1.0:
         # Consume one token
-        client = _get_redis_client()
+        if not redis_enabled:
+            return False
+
+        client = await get_redis_client(REDIS_RATE_LIMIT_DB)
         if client is None:
             return False
 
@@ -260,8 +201,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request with rate limiting."""
+        settings = get_settings()
+
         # Skip rate limiting if disabled
-        if not RATE_LIMIT_ENABLED:
+        if not settings.rate_limit_enabled:
             return await call_next(request)
 
         # Skip rate limiting for health checks and other system endpoints
@@ -273,29 +216,40 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Check Redis availability
-        if not _redis_available and RATE_LIMIT_REDIS_ENABLED:
-            # Test connection on first request
-            if await _test_redis_connection():
-                pass  # Connection successful
-            else:
-                logger.warning(
-                    "Rate limiting disabled: Redis unavailable. "
-                    "Set RATE_LIMIT_REDIS_ENABLED=false to suppress this warning."
-                )
-                return await call_next(request)
+        if settings.rate_limit_redis_enabled and not await test_redis_connection(
+            REDIS_RATE_LIMIT_DB
+        ):
+            logger.warning(
+                "Rate limiting disabled: Redis unavailable. "
+                "Set RATE_LIMIT_REDIS_ENABLED=false to suppress this warning."
+            )
+            return await call_next(request)
 
         client_id = _get_client_id(request)
-        endpoint = _get_endpoint_key(request.url.path)
+        endpoint = _get_endpoint_key(request.url.path, settings.rate_limit_endpoints)
+
+        # Get limit configuration for this endpoint
+        limit_config = settings.rate_limit_endpoints.get(
+            endpoint,
+            {"requests": settings.rate_limit_requests, "window": settings.rate_limit_window},
+        )
 
         # Check rate limit
-        if not await _consume_token_redis(client_id, endpoint):
-            limit_config = ENDPOINT_LIMITS.get(
-                endpoint, {"requests": RATE_LIMIT_REQUESTS, "window": RATE_LIMIT_WINDOW}
-            )
-
+        if not await _consume_token_redis(
+            client_id,
+            endpoint,
+            settings.rate_limit_endpoints,
+            settings.rate_limit_requests,
+            settings.rate_limit_window,
+            settings.rate_limit_redis_enabled,
+        ):
             # Get remaining tokens for header
             tokens = await _refill_tokens_redis(
-                client_id, endpoint, limit_config["requests"], limit_config["window"]
+                client_id,
+                endpoint,
+                limit_config["requests"],
+                limit_config["window"],
+                settings.rate_limit_redis_enabled,
             )
 
             raise HTTPException(
@@ -313,11 +267,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         # Add rate limit headers to response
-        limit_config = ENDPOINT_LIMITS.get(
-            endpoint, {"requests": RATE_LIMIT_REQUESTS, "window": RATE_LIMIT_WINDOW}
-        )
         tokens = await _refill_tokens_redis(
-            client_id, endpoint, limit_config["requests"], limit_config["window"]
+            client_id,
+            endpoint,
+            limit_config["requests"],
+            limit_config["window"],
+            settings.rate_limit_redis_enabled,
         )
 
         response.headers["X-RateLimit-Limit"] = str(limit_config["requests"])

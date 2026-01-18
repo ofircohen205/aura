@@ -17,7 +17,7 @@ install-py:
 
 # Install Node dependencies
 install-node:
-    npm install
+    @bash -c 'source ~/.nvm/nvm.sh 2>/dev/null || true; nvm use 20 >/dev/null 2>&1 || true; npm install'
 
 # =============================================================================
 # Docker Development Environment

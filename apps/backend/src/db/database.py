@@ -9,10 +9,14 @@ from collections.abc import AsyncGenerator
 
 from fastapi import Depends
 from loguru import logger
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlmodel import SQLModel
+from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import SQLModel, create_engine  # noqa: F401
 
 from core.config import get_settings
+
+# Re-export AsyncSession for centralized imports
+AsyncSession = _AsyncSession
 
 settings = get_settings()
 
@@ -20,6 +24,9 @@ settings = get_settings()
 async_db_uri = settings.postgres_db_uri.replace("postgresql+psycopg://", "postgresql+asyncpg://")
 
 # Create async engine
+# Note: SQLModel's create_engine is for synchronous engines.
+# For async operations, we use create_async_engine from SQLAlchemy.
+# See: https://sqlmodel.tiangolo.com/tutorial/create-db-and-table/
 async_engine = create_async_engine(
     async_db_uri,
     echo=settings.log_level == "DEBUG",
@@ -29,7 +36,7 @@ async_engine = create_async_engine(
 )
 
 
-async def get_session() -> AsyncGenerator[AsyncSession]:
+async def get_session() -> AsyncGenerator[_AsyncSession]:
     """
     Dependency for getting async database session.
 
@@ -44,7 +51,7 @@ async def get_session() -> AsyncGenerator[AsyncSession]:
             pass
         ```
     """
-    async with AsyncSession(async_engine) as session:
+    async with _AsyncSession(async_engine) as session:
         try:
             yield session
             await session.commit()
@@ -57,6 +64,9 @@ async def get_session() -> AsyncGenerator[AsyncSession]:
 
 # FastAPI dependency alias
 SessionDep = Depends(get_session)
+
+# Re-export for type hints
+__all__ = ["AsyncSession", "SessionDep", "get_session", "async_engine", "init_db", "close_db"]
 
 
 async def init_db() -> None:

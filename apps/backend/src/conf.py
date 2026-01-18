@@ -9,16 +9,16 @@ import sys
 from pathlib import Path
 
 # Project root: apps/backend directory
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).parent.parent
 
 # Source root: apps/backend/src directory
-SRC_ROOT = PROJECT_ROOT
+SRC_ROOT = PROJECT_ROOT / "src"
 
 # Tests root: apps/backend/tests directory
-TESTS_ROOT = PROJECT_ROOT.parent / "tests"
+TESTS_ROOT = PROJECT_ROOT / "tests"
 
 # Workspace root: aura/ directory (monorepo root)
-WORKSPACE_ROOT = PROJECT_ROOT.parent.parent.parent
+WORKSPACE_ROOT = PROJECT_ROOT.parent.parent
 
 # Ensure src directory is on Python path for imports
 if str(SRC_ROOT) not in sys.path:
