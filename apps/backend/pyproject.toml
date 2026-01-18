@@ -8,6 +8,7 @@ dependencies = [
     "asyncpg>=0.29.0",
     "bcrypt>=4.0.0",
     "core-py",
+    "email-validator>=2.0.0",
     "fastapi>=0.128.0",
     "httpx>=0.28.1",
     "loguru>=0.7.0",
@@ -29,6 +30,7 @@ markers = [
     "unit: Unit tests (isolated, mocked dependencies)",
     "integration: Integration tests (require database/Redis)",
     "e2e: End-to-end tests (require full stack)",
+    "performance: Performance and benchmark tests",
 ]
 
 [tool.uv.sources]
