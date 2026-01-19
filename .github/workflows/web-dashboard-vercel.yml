@@ -27,10 +27,31 @@ env:
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
 jobs:
+  check-secrets:
+    name: Check Vercel Secrets
+    runs-on: ubuntu-latest
+    outputs:
+      secrets-available: ${{ steps.check.outputs.available }}
+    steps:
+      - name: Check if Vercel secrets are configured
+        id: check
+        run: |
+          if [ -n "${{ secrets.VERCEL_TOKEN }}" ] && [ -n "${{ secrets.VERCEL_ORG_ID }}" ] && [ -n "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
+            echo "available=true" >> $GITHUB_OUTPUT
+            echo "✅ Vercel secrets are configured"
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Vercel secrets not configured - skipping deployment"
+            echo "Please configure VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID secrets"
+          fi
+
   deploy-preview:
     name: Deploy Preview
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'preview')
+    needs: [check-secrets]
+    if: |
+      needs.check-secrets.outputs.secrets-available == 'true' &&
+      (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'preview'))
     environment:
       name: preview
       url: ${{ steps.deploy.outputs.url }}
@@ -78,7 +99,10 @@ jobs:
   deploy-production:
     name: Deploy Production
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
+    needs: [check-secrets]
+    if: |
+      needs.check-secrets.outputs.secrets-available == 'true' &&
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
     environment:
       name: production
       url: https://aura-dashboard.vercel.app
