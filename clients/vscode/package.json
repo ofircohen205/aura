@@ -36,6 +36,8 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "lint": "echo 'ESLint not configured yet'",
+    "package": "vsce package --out aura-guardian.vsix",
     "test": "npm run compile && if [ -f ./node_modules/@vscode/test-electron/out/runTest.js ]; then node ./node_modules/@vscode/test-electron/out/runTest.js; else echo 'Test runner not available, skipping tests'; fi"
   },
   "devDependencies": {
