@@ -16,6 +16,17 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from core.config import get_settings
 from services.redis import REDIS_RATE_LIMIT_DB, get_redis_client, test_redis_connection
 
+# Import metrics (optional, fails gracefully if prometheus_client not installed)
+try:
+    from core.metrics import rate_limit_hits_total, rate_limit_requests_total
+
+    METRICS_ENABLED = True
+except ImportError:
+    # Metrics not available
+    METRICS_ENABLED = False
+    rate_limit_hits_total = None
+    rate_limit_requests_total = None
+
 
 def _get_client_id(request: Request) -> str:
     """
@@ -228,6 +239,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_id = _get_client_id(request)
         endpoint = _get_endpoint_key(request.url.path, settings.rate_limit_endpoints)
 
+        # Track rate limit requests
+        if METRICS_ENABLED:
+            rate_limit_requests_total.labels(endpoint=endpoint).inc()
+
         # Get limit configuration for this endpoint
         limit_config = settings.rate_limit_endpoints.get(
             endpoint,
@@ -243,6 +258,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             settings.rate_limit_window,
             settings.rate_limit_redis_enabled,
         ):
+            # Track rate limit hit
+            if METRICS_ENABLED:
+                rate_limit_hits_total.labels(endpoint=endpoint, client_id=client_id).inc()
+
             # Get remaining tokens for header
             tokens = await _refill_tokens_redis(
                 client_id,

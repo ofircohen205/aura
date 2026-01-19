@@ -323,3 +323,12 @@ k8s-rollback ENV="production" DEPLOYMENT="backend":
 # View pod status
 k8s-status NAMESPACE="" SERVICE="":
     @bash k8s/scripts/pod-status.sh {{NAMESPACE}} {{SERVICE}}
+
+# Run health checks for an environment
+k8s-health-check ENV="dev" NAMESPACE="" TIMEOUT="30" RETRIES="5":
+    @echo "Running health checks for {{ENV}} environment..."
+    @if [ -z "{{NAMESPACE}}" ]; then \
+        bash k8s/scripts/health-check.sh {{ENV}} "" {{TIMEOUT}} {{RETRIES}}; \
+    else \
+        bash k8s/scripts/health-check.sh {{ENV}} {{NAMESPACE}} {{TIMEOUT}} {{RETRIES}}; \
+    fi

@@ -71,7 +71,8 @@ jobs:
 
       - name: Run health checks
         run: |
-          # Wait for services to be ready
+          # Wait for services to be ready after deployment
           sleep 30
-          # Health checks would go here
-          echo "Health checks completed"
+          # Run comprehensive health checks
+          chmod +x k8s/scripts/health-check.sh
+          ./k8s/scripts/health-check.sh staging ${{ env.KUBERNETES_NAMESPACE }} 30 5

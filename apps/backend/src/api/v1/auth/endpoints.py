@@ -24,6 +24,26 @@ from db.database import AsyncSession, SessionDep
 from db.models.user import User
 from services.auth.service import auth_service
 
+# Import metrics (optional, fails gracefully if prometheus_client not installed)
+try:
+    from core.metrics import (
+        auth_failures_total,
+        auth_requests_total,
+        auth_token_refreshes_total,
+        tokens_issued_total,
+        user_registrations_total,
+    )
+
+    METRICS_ENABLED = True
+except ImportError:
+    # Metrics not available
+    METRICS_ENABLED = False
+    auth_requests_total = None
+    auth_token_refreshes_total = None
+    user_registrations_total = None
+    auth_failures_total = None
+    tokens_issued_total = None
+
 router = APIRouter(tags=["auth"])
 
 
@@ -65,12 +85,21 @@ async def register(
     Creates a new user account with the provided email, username, and password.
     The password is hashed using bcrypt before storage.
     """
-    user = await auth_service.register_user(
-        session=session,
-        email=user_data.email,
-        username=user_data.username,
-        password=user_data.password,
-    )
+    try:
+        user = await auth_service.register_user(
+            session=session,
+            email=user_data.email,
+            username=user_data.username,
+            password=user_data.password,
+        )
+        if METRICS_ENABLED:
+            user_registrations_total.labels(status="success").inc()
+            auth_requests_total.labels(endpoint="register", status="success").inc()
+    except Exception:
+        if METRICS_ENABLED:
+            user_registrations_total.labels(status="failure").inc()
+            auth_requests_total.labels(endpoint="register", status="failure").inc()
+        raise
 
     user_response = UserResponse.model_validate(user)
     # Add HATEOAS links
@@ -113,24 +142,42 @@ async def login(
 
     Validates user credentials and returns JWT access token and refresh token.
     """
-    # Authenticate user
-    user = await auth_service.authenticate_user(
-        session=session,
-        email=credentials.email,
-        password=credentials.password,
-    )
+    try:
+        # Authenticate user
+        user = await auth_service.authenticate_user(
+            session=session,
+            email=credentials.email,
+            password=credentials.password,
+        )
 
-    # Create access token
-    access_token = await auth_service.create_access_token(user)
+        # Create access token
+        access_token = await auth_service.create_access_token(user)
+        if METRICS_ENABLED:
+            tokens_issued_total.labels(token_type="access").inc()
 
-    # Create refresh token
-    refresh_token = await auth_service.create_refresh_token_record(user=user)
+        # Create refresh token
+        refresh_token = await auth_service.create_refresh_token_record(user=user)
+        if METRICS_ENABLED:
+            tokens_issued_total.labels(token_type="refresh").inc()
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-    )
+        if METRICS_ENABLED:
+            auth_requests_total.labels(endpoint="login", status="success").inc()
+
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+        )
+    except Exception as e:
+        if METRICS_ENABLED:
+            auth_requests_total.labels(endpoint="login", status="failure").inc()
+            # Track specific failure reasons
+            error_type = type(e).__name__
+            if "InvalidCredentialsError" in error_type:
+                auth_failures_total.labels(reason="invalid_credentials").inc()
+            elif "InactiveUserError" in error_type:
+                auth_failures_total.labels(reason="inactive_user").inc()
+        raise
 
 
 @router.post(
@@ -154,16 +201,31 @@ async def refresh(
     Validates the refresh token and returns a new access token.
     The refresh token remains valid until it expires.
     """
-    access_token, refresh_token = await auth_service.refresh_access_token(
-        session=session,
-        refresh_token_str=token_data.refresh_token,
-    )
+    try:
+        access_token, refresh_token = await auth_service.refresh_access_token(
+            session=session,
+            refresh_token_str=token_data.refresh_token,
+        )
+        if METRICS_ENABLED:
+            auth_token_refreshes_total.labels(status="success").inc()
+            tokens_issued_total.labels(token_type="access").inc()
+            auth_requests_total.labels(endpoint="refresh", status="success").inc()
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-    )
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+        )
+    except Exception as e:
+        if METRICS_ENABLED:
+            auth_token_refreshes_total.labels(status="failure").inc()
+            auth_requests_total.labels(endpoint="refresh", status="failure").inc()
+            error_type = type(e).__name__
+            if "RefreshTokenNotFoundError" in error_type:
+                auth_failures_total.labels(reason="invalid_token").inc()
+            elif "TokenExpiredError" in error_type:
+                auth_failures_total.labels(reason="expired_token").inc()
+        raise
 
 
 @router.post(

@@ -5,6 +5,7 @@ Business logic for workflow orchestration and state management.
 Extracts workflow execution logic from API endpoints.
 """
 
+import time
 import uuid
 from typing import Any
 
@@ -18,6 +19,38 @@ from services.workflows.exceptions import (
     WorkflowNotFoundError,
     WorkflowServiceUnavailableError,
 )
+
+# Import metrics (optional, fails gracefully if prometheus_client not installed)
+try:
+    from core.metrics import (
+        audit_executions_total,
+        audit_files_processed,
+        audit_violations_by_type,
+        audit_violations_detected,
+        lesson_recommendations_generated_total,
+        struggle_detections_total,
+        struggle_workflow_edit_frequency,
+        struggle_workflow_error_count,
+        workflow_duration_seconds,
+        workflow_executions_total,
+        workflow_failures_total,
+    )
+
+    METRICS_ENABLED = True
+except ImportError:
+    # Metrics not available
+    METRICS_ENABLED = False
+    workflow_executions_total = None
+    workflow_duration_seconds = None
+    workflow_failures_total = None
+    struggle_detections_total = None
+    lesson_recommendations_generated_total = None
+    struggle_workflow_edit_frequency = None
+    struggle_workflow_error_count = None
+    audit_executions_total = None
+    audit_violations_detected = None
+    audit_violations_by_type = None
+    audit_files_processed = None
 
 
 class WorkflowService:
@@ -56,6 +89,13 @@ class WorkflowService:
             },
         )
 
+        # Track metrics
+        if METRICS_ENABLED:
+            struggle_workflow_edit_frequency.observe(edit_frequency)
+            struggle_workflow_error_count.observe(len(error_logs))
+
+        start_time = time.time()
+
         try:
             async with get_checkpointer() as checkpointer:
                 graph = build_struggle_graph(checkpointer=checkpointer)
@@ -73,6 +113,16 @@ class WorkflowService:
                 try:
                     final_state = await graph.ainvoke(initial_state, config=config)
                 except Exception as e:
+                    duration = time.time() - start_time
+                    if METRICS_ENABLED:
+                        workflow_executions_total.labels(
+                            workflow_type="struggle", status="failure"
+                        ).inc()
+                        workflow_duration_seconds.labels(workflow_type="struggle").observe(duration)
+                        workflow_failures_total.labels(
+                            workflow_type="struggle", error_type="execution_error"
+                        ).inc()
+
                     logger.error(
                         "Workflow graph execution failed",
                         extra={
@@ -85,12 +135,28 @@ class WorkflowService:
                     )
                     raise WorkflowExecutionError("struggle", str(e)) from e
 
+                duration = time.time() - start_time
+                is_struggling = final_state.get("is_struggling", False)
+                has_recommendation = final_state.get("lesson_recommendation") is not None
+
+                # Track metrics
+                if METRICS_ENABLED:
+                    workflow_executions_total.labels(
+                        workflow_type="struggle", status="success"
+                    ).inc()
+                    workflow_duration_seconds.labels(workflow_type="struggle").observe(duration)
+                    struggle_detections_total.labels(
+                        result="struggling" if is_struggling else "not_struggling"
+                    ).inc()
+                    if has_recommendation:
+                        lesson_recommendations_generated_total.inc()
+
                 logger.info(
                     "Struggle workflow completed",
                     extra={
                         "thread_id": thread_id,
-                        "is_struggling": final_state.get("is_struggling", False),
-                        "has_recommendation": final_state.get("lesson_recommendation") is not None,
+                        "is_struggling": is_struggling,
+                        "has_recommendation": has_recommendation,
                     },
                 )
 
@@ -103,6 +169,14 @@ class WorkflowService:
         except WorkflowExecutionError:
             raise
         except Exception as e:
+            duration = time.time() - start_time
+            if METRICS_ENABLED:
+                workflow_executions_total.labels(workflow_type="struggle", status="failure").inc()
+                workflow_duration_seconds.labels(workflow_type="struggle").observe(duration)
+                workflow_failures_total.labels(
+                    workflow_type="struggle", error_type="service_unavailable"
+                ).inc()
+
             logger.error(
                 "Struggle workflow failed",
                 extra={
@@ -145,6 +219,8 @@ class WorkflowService:
             },
         )
 
+        start_time = time.time()
+
         try:
             async with get_checkpointer() as checkpointer:
                 graph = build_audit_graph(checkpointer=checkpointer)
@@ -159,6 +235,16 @@ class WorkflowService:
                 try:
                     final_state = await graph.ainvoke(initial_state, config=config)
                 except Exception as e:
+                    duration = time.time() - start_time
+                    if METRICS_ENABLED:
+                        workflow_executions_total.labels(
+                            workflow_type="audit", status="failure"
+                        ).inc()
+                        workflow_duration_seconds.labels(workflow_type="audit").observe(duration)
+                        workflow_failures_total.labels(
+                            workflow_type="audit", error_type="execution_error"
+                        ).inc()
+
                     logger.error(
                         "Workflow graph execution failed",
                         extra={
@@ -171,12 +257,37 @@ class WorkflowService:
                     )
                     raise WorkflowExecutionError("audit", str(e)) from e
 
+                duration = time.time() - start_time
+                audit_status = final_state.get("status", "unknown")
+                violation_list = final_state.get("violations", [])
+                violation_count = len(violation_list)
+                parsed_files = final_state.get("parsed_files", [])
+                file_count = len(parsed_files)
+
+                # Track metrics
+                if METRICS_ENABLED:
+                    workflow_executions_total.labels(workflow_type="audit", status="success").inc()
+                    workflow_duration_seconds.labels(workflow_type="audit").observe(duration)
+                    audit_executions_total.labels(status=audit_status).inc()
+                    audit_violations_detected.observe(violation_count)
+                    audit_files_processed.observe(file_count)
+
+                    # Track violations by type if available
+                    violation_details = final_state.get("violation_details", [])
+                    for violation in violation_details:
+                        # Try rule_name first (from AST/pattern checks), then type
+                        violation_type = violation.get("rule_name") or violation.get(
+                            "type", "unknown"
+                        )
+                        if violation_type and violation_type != "unknown":
+                            audit_violations_by_type.labels(violation_type=violation_type).inc()
+
                 logger.info(
                     "Audit workflow completed",
                     extra={
                         "thread_id": thread_id,
-                        "status": final_state.get("status", "unknown"),
-                        "violation_count": len(final_state.get("violations", [])),
+                        "status": audit_status,
+                        "violation_count": violation_count,
                     },
                 )
 
@@ -189,6 +300,14 @@ class WorkflowService:
         except WorkflowExecutionError:
             raise
         except Exception as e:
+            duration = time.time() - start_time
+            if METRICS_ENABLED:
+                workflow_executions_total.labels(workflow_type="audit", status="failure").inc()
+                workflow_duration_seconds.labels(workflow_type="audit").observe(duration)
+                workflow_failures_total.labels(
+                    workflow_type="audit", error_type="service_unavailable"
+                ).inc()
+
             logger.error(
                 "Audit workflow failed",
                 extra={
