@@ -5,6 +5,8 @@
   "description": "A Probot app",
   "scripts": {
     "start": "probot run ./index.js",
+    "build": "echo 'No build step required for JavaScript'",
+    "lint": "echo 'ESLint not configured yet'",
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
