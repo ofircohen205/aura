@@ -14,38 +14,33 @@ pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
 @pytest.fixture
-async def clean_test_users(init_test_db):
+async def clean_test_users(init_test_db, db_session):
     """Clean up test users before and after each test."""
     from sqlmodel import select
 
-    from db.database import get_session
     from db.models.user import User
 
     # Clean up before test
-    async for session in get_session():
-        stmt = select(User).where(
-            (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
-        )
-        result = await session.execute(stmt)
-        users = result.scalars().all()
-        for user in users:
-            await session.delete(user)
-        await session.commit()
-        break
+    stmt = select(User).where(
+        (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
+    )
+    result = await db_session.execute(stmt)
+    users = result.scalars().all()
+    for user in users:
+        await db_session.delete(user)
+    await db_session.commit()
 
     yield
 
     # Clean up after test
-    async for session in get_session():
-        stmt = select(User).where(
-            (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
-        )
-        result = await session.execute(stmt)
-        users = result.scalars().all()
-        for user in users:
-            await session.delete(user)
-        await session.commit()
-        break
+    stmt = select(User).where(
+        (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
+    )
+    result = await db_session.execute(stmt)
+    users = result.scalars().all()
+    for user in users:
+        await db_session.delete(user)
+    await db_session.commit()
 
 
 @pytest.fixture

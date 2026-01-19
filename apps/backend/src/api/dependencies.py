@@ -29,6 +29,9 @@ async def get_authorization_header(
     This sub-dependency checks authorization first to avoid creating
     a database session when authorization is missing.
 
+    Uses HTTPException to ensure it's handled before any response processing
+    starts, preventing "response already started" errors.
+
     Args:
         authorization: Authorization header (Bearer token)
 
@@ -36,10 +39,16 @@ async def get_authorization_header(
         Authorization header value
 
     Raises:
-        UnauthorizedError: If authorization header is missing (raises immediately before session creation)
+        HTTPException: If authorization header is missing (raises immediately before session creation)
     """
     if not authorization:
-        raise UnauthorizedError("Authorization header is missing")
+        # Use HTTPException directly to ensure it's handled before any middleware
+        # sends headers, preventing "response already started" errors
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header is missing",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return authorization
 
 
