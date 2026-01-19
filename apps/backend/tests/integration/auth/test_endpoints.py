@@ -6,7 +6,7 @@ Requires database to be running.
 """
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 pytestmark = pytest.mark.integration
 
@@ -14,44 +14,68 @@ pytestmark = pytest.mark.integration
 class TestAuthEndpointsIntegration:
     """Integration tests for authentication endpoints."""
 
-    def test_register_endpoint(
-        self, app_client: TestClient, test_user_data: dict[str, str], csrf_headers: dict[str, str]
-    ):
+    @pytest.mark.asyncio
+    async def test_register_endpoint(self, test_user_data: dict[str, str]):
         """Test user registration endpoint with real database."""
-        response = app_client.post(
-            "/api/v1/auth/register",
-            json=test_user_data,
-            headers=csrf_headers,
-            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
-        )
+        from main import app
 
-        # Should succeed or return appropriate error
-        assert response.status_code in [201, 409]  # Created or Conflict
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as ac:
+            # Get CSRF token first
+            get_response = await ac.get("/health")
+            csrf_token = get_response.cookies.get("csrf-token")
+            headers = {"X-CSRF-Token": csrf_token} if csrf_token else {}
 
-    def test_login_endpoint(
-        self, app_client: TestClient, test_user_data: dict[str, str], csrf_headers: dict[str, str]
-    ):
+            response = await ac.post(
+                "/api/v1/auth/register",
+                json=test_user_data,
+                headers=headers,
+                cookies={"csrf-token": csrf_token} if csrf_token else {},
+            )
+
+            # Should succeed or return appropriate error
+            assert response.status_code in [201, 409]  # Created or Conflict
+
+    @pytest.mark.asyncio
+    async def test_login_endpoint(self, test_user_data: dict[str, str]):
         """Test user login endpoint."""
-        # First register a user
-        app_client.post(
-            "/api/v1/auth/register",
-            json=test_user_data,
-            headers=csrf_headers,
-            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
-        )
+        from main import app
 
-        # Then try to login
-        response = app_client.post(
-            "/api/v1/auth/login",
-            json={"email": test_user_data["email"], "password": test_user_data["password"]},
-            headers=csrf_headers,
-            cookies={"csrf-token": csrf_headers["X-CSRF-Token"]},
-        )
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as ac:
+            # Get CSRF token first
+            get_response = await ac.get("/health")
+            csrf_token = get_response.cookies.get("csrf-token")
+            headers = {"X-CSRF-Token": csrf_token} if csrf_token else {}
 
-        assert response.status_code in [200, 401]  # OK or Unauthorized
+            # First register a user
+            await ac.post(
+                "/api/v1/auth/register",
+                json=test_user_data,
+                headers=headers,
+                cookies={"csrf-token": csrf_token} if csrf_token else {},
+            )
 
-    def test_get_current_user_requires_auth(self, app_client: TestClient):
+            # Then try to login
+            response = await ac.post(
+                "/api/v1/auth/login",
+                json={"email": test_user_data["email"], "password": test_user_data["password"]},
+                headers=headers,
+                cookies={"csrf-token": csrf_token} if csrf_token else {},
+            )
+
+            assert response.status_code in [200, 401]  # OK or Unauthorized
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_requires_auth(self):
         """Test that /me endpoint requires authentication."""
-        response = app_client.get("/api/v1/auth/me")
+        from main import app
 
-        assert response.status_code == 401  # Unauthorized
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as ac:
+            response = await ac.get("/api/v1/auth/me")
+
+            assert response.status_code == 401  # Unauthorized
