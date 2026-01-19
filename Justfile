@@ -112,6 +112,44 @@ test-ts:
     @echo "Running TypeScript tests in Docker..."
     docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
 
+# Run all tests locally (unit tests only, excludes integration/e2e)
+test-local:
+    @echo "Running all tests locally (unit tests only)..."
+    just test-py-local
+    just test-ts-local
+
+# Run Python tests locally (unit tests only, excludes integration/e2e)
+# Integration and e2e tests require database - use test-py-integration-docker for those
+test-py-local:
+    @echo "Running Python unit tests locally..."
+    cd apps/backend && uv run pytest tests/ -v -m "not integration and not e2e"
+    cd libs/core-py && uv run pytest tests/ -v || echo "No tests in core-py"
+
+# Run integration/e2e tests against Docker database
+# Requires Docker services to be running (use: just dev-detached)
+test-py-integration-docker:
+    @echo "Running integration/e2e tests against Docker database..."
+    @echo "Note: Requires Docker services to be running (use: just dev-detached)"
+    @docker compose -f docker/docker-compose.dev.yml ps postgres | grep -q "Up" || (echo "Error: Docker services not running. Start with: just dev-detached" && exit 1)
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v -m 'integration or e2e'"
+
+# Run all Python tests locally including integration/e2e (requires local database)
+test-py-local-all:
+    @echo "Running all Python tests locally (including integration/e2e)..."
+    @echo "Note: Requires PostgreSQL (aura_db) and Redis to be running locally"
+    @echo "Default connection: postgresql://aura:aura@localhost:5432/aura_db"
+    cd apps/backend && uv run pytest tests/ -v
+    cd libs/core-py && uv run pytest tests/ -v || echo "No tests in core-py"
+
+# Run TypeScript tests locally (skips if no test script)
+test-ts-local:
+    @echo "Running TypeScript tests locally..."
+    @if grep -q '"test"' apps/web-dashboard/package.json 2>/dev/null; then \
+        cd apps/web-dashboard && npm test; \
+    else \
+        echo "No test script found in web-dashboard/package.json, skipping TypeScript tests..."; \
+    fi
+
 # Run linting (Python + TypeScript) in Docker
 lint:
     @echo "Running linters in Docker..."

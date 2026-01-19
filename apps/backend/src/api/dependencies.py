@@ -20,16 +20,39 @@ from services.auth.service import auth_service
 settings = get_settings()
 
 
-async def get_current_user(
-    session: Annotated[AsyncSession, SessionDep],
+async def get_authorization_header(
     authorization: Annotated[str | None, Header()] = None,
+) -> str:
+    """
+    Extract and validate authorization header before creating database session.
+
+    This sub-dependency checks authorization first to avoid creating
+    a database session when authorization is missing.
+
+    Args:
+        authorization: Authorization header (Bearer token)
+
+    Returns:
+        Authorization header value
+
+    Raises:
+        UnauthorizedError: If authorization header is missing
+    """
+    if not authorization:
+        raise UnauthorizedError("Authorization header is missing")
+    return authorization
+
+
+async def get_current_user(
+    authorization: Annotated[str, Depends(get_authorization_header)],
+    session: Annotated[AsyncSession, SessionDep],
 ) -> User:
     """
     FastAPI dependency to extract and validate the current user from JWT token.
 
     Args:
+        authorization: Authorization header (Bearer token) - validated by sub-dependency
         session: Database session
-        authorization: Authorization header (Bearer token)
 
     Returns:
         Current User object
@@ -37,8 +60,6 @@ async def get_current_user(
     Raises:
         UnauthorizedError: If token is missing, invalid, or expired
     """
-    if not authorization:
-        raise UnauthorizedError("Authorization header is missing")
 
     # Extract token from "Bearer <token>" format
     try:
