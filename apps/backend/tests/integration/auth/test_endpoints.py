@@ -5,16 +5,66 @@ Tests API endpoints with real database connections.
 Requires database to be running.
 """
 
+import uuid
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
+@pytest.fixture
+async def clean_test_users(init_test_db):
+    """Clean up test users before and after each test."""
+    from sqlmodel import select
+
+    from db.database import get_session
+    from db.models.user import User
+
+    # Clean up before test
+    async for session in get_session():
+        stmt = select(User).where(
+            (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
+        )
+        result = await session.execute(stmt)
+        users = result.scalars().all()
+        for user in users:
+            await session.delete(user)
+        await session.commit()
+        break
+
+    yield
+
+    # Clean up after test
+    async for session in get_session():
+        stmt = select(User).where(
+            (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
+        )
+        result = await session.execute(stmt)
+        users = result.scalars().all()
+        for user in users:
+            await session.delete(user)
+        await session.commit()
+        break
+
+
+@pytest.fixture
+def unique_test_user_data(test_user_data: dict[str, str]) -> dict[str, str]:
+    """Generate unique test user data for each test."""
+    unique_id = str(uuid.uuid4())[:8]
+    return {
+        "email": f"test_{unique_id}@example.com",
+        "username": f"testuser_{unique_id}",
+        "password": test_user_data["password"],
+    }
+
+
 class TestAuthEndpointsIntegration:
     """Integration tests for authentication endpoints."""
 
-    async def test_register_endpoint(self, test_user_data: dict[str, str], init_test_db):
+    async def test_register_endpoint(
+        self, unique_test_user_data: dict[str, str], init_test_db, clean_test_users
+    ):
         """Test user registration endpoint with real database."""
         from main import app
 
@@ -28,15 +78,17 @@ class TestAuthEndpointsIntegration:
 
             response = await ac.post(
                 "/api/v1/auth/register",
-                json=test_user_data,
+                json=unique_test_user_data,
                 headers=headers,
                 cookies={"csrf-token": csrf_token} if csrf_token else {},
             )
 
-            # Should succeed or return appropriate error
-            assert response.status_code in [201, 409]  # Created or Conflict
+            # Should succeed
+            assert response.status_code == 201
 
-    async def test_login_endpoint(self, test_user_data: dict[str, str], init_test_db):
+    async def test_login_endpoint(
+        self, unique_test_user_data: dict[str, str], init_test_db, clean_test_users
+    ):
         """Test user login endpoint."""
         from main import app
 
@@ -49,22 +101,26 @@ class TestAuthEndpointsIntegration:
             headers = {"X-CSRF-Token": csrf_token} if csrf_token else {}
 
             # First register a user
-            await ac.post(
+            register_response = await ac.post(
                 "/api/v1/auth/register",
-                json=test_user_data,
+                json=unique_test_user_data,
                 headers=headers,
                 cookies={"csrf-token": csrf_token} if csrf_token else {},
             )
+            assert register_response.status_code == 201
 
             # Then try to login
             response = await ac.post(
                 "/api/v1/auth/login",
-                json={"email": test_user_data["email"], "password": test_user_data["password"]},
+                json={
+                    "email": unique_test_user_data["email"],
+                    "password": unique_test_user_data["password"],
+                },
                 headers=headers,
                 cookies={"csrf-token": csrf_token} if csrf_token else {},
             )
 
-            assert response.status_code in [200, 401]  # OK or Unauthorized
+            assert response.status_code == 200  # Should succeed
 
     async def test_get_current_user_requires_auth(self, init_test_db):
         """Test that /me endpoint requires authentication."""

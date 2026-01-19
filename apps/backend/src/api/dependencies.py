@@ -36,7 +36,7 @@ async def get_authorization_header(
         Authorization header value
 
     Raises:
-        UnauthorizedError: If authorization header is missing
+        UnauthorizedError: If authorization header is missing (raises immediately before session creation)
     """
     if not authorization:
         raise UnauthorizedError("Authorization header is missing")
