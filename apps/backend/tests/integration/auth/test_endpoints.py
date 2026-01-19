@@ -14,33 +14,37 @@ pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
 @pytest.fixture
-async def clean_test_users(init_test_db, db_session):
+async def clean_test_users(init_test_db):
     """Clean up test users before and after each test."""
+    from sqlalchemy.ext.asyncio import AsyncSession
     from sqlmodel import select
 
+    from db.database import async_engine
     from db.models.user import User
 
+    async def cleanup_users():
+        """Helper function to clean up test users."""
+        async with AsyncSession(async_engine) as session:
+            try:
+                stmt = select(User).where(
+                    (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
+                )
+                result = await session.execute(stmt)
+                users = result.scalars().all()
+                for user in users:
+                    await session.delete(user)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
     # Clean up before test
-    stmt = select(User).where(
-        (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
-    )
-    result = await db_session.execute(stmt)
-    users = result.scalars().all()
-    for user in users:
-        await db_session.delete(user)
-    await db_session.commit()
+    await cleanup_users()
 
     yield
 
     # Clean up after test
-    stmt = select(User).where(
-        (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
-    )
-    result = await db_session.execute(stmt)
-    users = result.scalars().all()
-    for user in users:
-        await db_session.delete(user)
-    await db_session.commit()
+    await cleanup_users()
 
 
 @pytest.fixture

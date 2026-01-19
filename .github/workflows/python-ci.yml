@@ -139,7 +139,7 @@ jobs:
 
       - name: Run integration tests
         env:
-          POSTGRES_DB_URI: postgresql+psycopg://aura:aura@localhost:5432/aura_test
+          POSTGRES_DB_URI: postgresql+asyncpg://aura:aura@localhost:5432/aura_test
           REDIS_URL: redis://localhost:6379/0
           REDIS_ENABLED: "true"
           REDIS_AUTH_DB: "2"
@@ -148,6 +148,8 @@ jobs:
           ENVIRONMENT: test
         run: |
           cd apps/backend
+          # Verify database connection string is set correctly
+          echo "Database URI: $POSTGRES_DB_URI"
           # Run integration tests (includes authentication integration tests)
           uv run pytest tests/ -v -m "integration" --maxfail=5
 

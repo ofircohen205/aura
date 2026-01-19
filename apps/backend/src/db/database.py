@@ -21,7 +21,16 @@ AsyncSession = _AsyncSession
 settings = get_settings()
 
 # Convert postgresql+psycopg:// to postgresql+asyncpg:// for async engine
-async_db_uri = settings.postgres_db_uri.replace("postgresql+psycopg://", "postgresql+asyncpg://")
+# Also handle case where URI is already in asyncpg format
+if "postgresql+psycopg://" in settings.postgres_db_uri:
+    async_db_uri = settings.postgres_db_uri.replace(
+        "postgresql+psycopg://", "postgresql+asyncpg://"
+    )
+elif "postgresql+asyncpg://" not in settings.postgres_db_uri:
+    # If neither format is present, assume psycopg and convert
+    async_db_uri = settings.postgres_db_uri.replace("postgresql://", "postgresql+asyncpg://")
+else:
+    async_db_uri = settings.postgres_db_uri
 
 # Create async engine
 # Note: SQLModel's create_engine is for synchronous engines.
