@@ -113,6 +113,29 @@ def csrf_headers(csrf_token: str) -> dict[str, str]:
 
 
 # Integration test fixtures
+@pytest.fixture(scope="session")
+async def init_test_db(request):
+    """
+    Initialize database tables for integration tests.
+
+    This fixture runs once per test session and creates all required tables.
+    Note: Requires database to be running.
+    """
+    from sqlmodel import SQLModel
+
+    from db.database import async_engine
+
+    # Create all tables
+    async with async_engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+    yield
+
+    # Cleanup: drop all tables after tests (optional - comment out to keep data for debugging)
+    # async with async_engine.begin() as conn:
+    #     await conn.run_sync(SQLModel.metadata.drop_all)
+
+
 @pytest.fixture
 async def db_session() -> AsyncGenerator:
     """

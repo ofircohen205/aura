@@ -8,14 +8,13 @@ Requires database to be running.
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
 class TestAuthEndpointsIntegration:
     """Integration tests for authentication endpoints."""
 
-    @pytest.mark.asyncio
-    async def test_register_endpoint(self, test_user_data: dict[str, str]):
+    async def test_register_endpoint(self, test_user_data: dict[str, str], init_test_db):
         """Test user registration endpoint with real database."""
         from main import app
 
@@ -37,8 +36,7 @@ class TestAuthEndpointsIntegration:
             # Should succeed or return appropriate error
             assert response.status_code in [201, 409]  # Created or Conflict
 
-    @pytest.mark.asyncio
-    async def test_login_endpoint(self, test_user_data: dict[str, str]):
+    async def test_login_endpoint(self, test_user_data: dict[str, str], init_test_db):
         """Test user login endpoint."""
         from main import app
 
@@ -68,14 +66,16 @@ class TestAuthEndpointsIntegration:
 
             assert response.status_code in [200, 401]  # OK or Unauthorized
 
-    @pytest.mark.asyncio
-    async def test_get_current_user_requires_auth(self):
+    async def test_get_current_user_requires_auth(self, init_test_db):
         """Test that /me endpoint requires authentication."""
         from main import app
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"
         ) as ac:
-            response = await ac.get("/api/v1/auth/me")
+            # Make request without authorization header
+            # This should return 401 before trying to access database
+            response = await ac.get("/api/v1/auth/me", follow_redirects=False)
 
-            assert response.status_code == 401  # Unauthorized
+            # Should return 401 Unauthorized
+            assert response.status_code == 401
