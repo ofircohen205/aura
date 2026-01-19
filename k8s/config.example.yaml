@@ -1,0 +1,52 @@
+# Kubernetes Configuration Example
+# Copy this file to k8s/config.yaml and update with your values
+
+registry:
+  # Container registry configuration
+  url: "ghcr.io"
+  owner: "ofircohen205"
+  repo: "aura"
+
+  # Image naming: {registry.url}/{registry.owner}/{registry.repo}-{service}:{tag}
+  # Example: ghcr.io/ofircohen205/aura-backend:latest
+
+images:
+  # Default image tags
+  dev_tag: "dev"
+  prod_tag: "latest"
+
+  # Version tagging strategy
+  # Options: git-commit, git-branch, semver, custom
+  version_strategy: "git-commit"
+
+kubernetes:
+  # Local cluster configuration
+  local_cluster:
+    type: "kind" # Using kind (Kubernetes in Docker) for local development
+    name: "aura-dev"
+
+  # Namespace configuration
+  namespaces:
+    dev: "aura-dev"
+    staging: "aura-staging"
+    production: "aura-production"
+
+secrets:
+  # Secrets management
+  # For production, use external secret management
+  # Options: sealed-secrets, external-secrets, cloud-native
+
+  # GitHub Container Registry authentication
+  ghcr_token_env: "GITHUB_TOKEN" # Environment variable name
+
+monitoring:
+  # Monitoring stack configuration
+  logging:
+    provider: "loki" # As specified
+    retention: "30d"
+
+  metrics:
+    provider: "prometheus"
+
+  tracing:
+    provider: "jaeger" # Optional

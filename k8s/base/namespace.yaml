@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aura-dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aura-staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aura-production

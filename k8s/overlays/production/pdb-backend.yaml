@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+spec:
+  minAvailable: 2 # At least 2 pods must be available during disruptions
+  selector:
+    matchLabels:
+      app: backend
+      component: api

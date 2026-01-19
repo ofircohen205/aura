@@ -2,11 +2,18 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files from monorepo root
 COPY package.json package-lock.json* ./
+COPY apps/web-dashboard/package.json apps/web-dashboard/
 
 # Install dependencies
 RUN npm install
+
+# Copy source code
+COPY apps/web-dashboard ./apps/web-dashboard
+
+# Set working directory to web-dashboard for Next.js
+WORKDIR /app/apps/web-dashboard
 
 # Expose port
 EXPOSE 3000

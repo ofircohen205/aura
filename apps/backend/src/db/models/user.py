@@ -7,7 +7,7 @@ SQLModel definitions for user authentication and authorization.
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import ARRAY, Column, Index, String, UniqueConstraint
+from sqlalchemy import ARRAY, Column, DateTime, Index, String, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -39,8 +39,14 @@ class User(SQLModel, table=True):  # type: ignore[call-arg]
         default_factory=lambda: ["user"],
         sa_column=Column(ARRAY(String), nullable=False),
     )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
     # Note: Refresh tokens are stored in Redis, not in the database
 

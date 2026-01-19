@@ -82,16 +82,90 @@ jobs:
         run: |
           if [ "${{ matrix.project }}" == "backend" ]; then
             cd apps/backend
+            # Run unit tests (excludes integration and e2e)
             uv run pytest tests/ -v -m "not integration and not e2e"
           elif [ "${{ matrix.project }}" == "core-py" ]; then
             cd libs/core-py
             uv run pytest tests/ -v
           fi
 
+  test-integration:
+    name: Integration Tests (with Database)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aura
+          POSTGRES_PASSWORD: aura
+          POSTGRES_DB: aura_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-groups --dev
+
+      - name: Run integration tests
+        env:
+          POSTGRES_DB_URI: postgresql+asyncpg://aura:aura@localhost:5432/aura_test
+          REDIS_URL: redis://localhost:6379/0
+          REDIS_ENABLED: "true"
+          REDIS_AUTH_DB: "2"
+          REDIS_RATE_LIMIT_DB: "1"
+          JWT_SECRET_KEY: test-secret-key-for-jwt-tokens-minimum-32-chars-for-testing-only
+          ENVIRONMENT: test
+        run: |
+          cd apps/backend
+          # Verify database connection string is set correctly
+          echo "Database URI: $POSTGRES_DB_URI"
+          # Run integration tests (includes authentication integration tests)
+          uv run pytest tests/ -v -m "integration" --maxfail=5
+
+      - name: Run authentication unit tests explicitly
+        env:
+          JWT_SECRET_KEY: test-secret-key-for-jwt-tokens-minimum-32-chars-for-testing-only
+          ENVIRONMENT: test
+        run: |
+          cd apps/backend
+          # Run authentication-related unit tests
+          uv run pytest tests/test_auth.py tests/unit/auth/ -v --maxfail=5
+
   build:
     name: Build Python Packages
     runs-on: ubuntu-latest
-    needs: [lint-and-type-check, test]
+    needs: [lint-and-type-check, test, test-integration]
 
     steps:
       - name: Checkout code

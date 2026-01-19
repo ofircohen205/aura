@@ -1,0 +1,212 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (e.g., v1.0.0)"
+        required: true
+        type: string
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+        type: string
+
+env:
+  KUBERNETES_NAMESPACE: aura-production
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
+
+jobs:
+  pre-deployment-checks:
+    name: Pre-deployment Checks
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify confirmation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ inputs.confirm }}" != "deploy" ]; then
+            echo "Deployment not confirmed. Please type 'deploy' to confirm."
+            exit 1
+          fi
+
+      - name: Verify images exist
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          REGISTRY="${{ env.REGISTRY }}"
+          IMAGE_PREFIX="${{ env.IMAGE_PREFIX }}"
+
+          echo "Verifying images exist with tag: $TAG"
+
+          # Images to verify
+          BACKEND_IMAGE="${REGISTRY}/${IMAGE_PREFIX}/aura-backend:${TAG}"
+          WEB_IMAGE="${REGISTRY}/${IMAGE_PREFIX}/aura-web-dashboard:${TAG}"
+
+          # Function to verify image exists
+          verify_image() {
+            local image=$1
+            local image_name=$2
+
+            echo "Checking ${image_name}..."
+
+            # Try to get image manifest using Docker registry API
+            # For GHCR, we can use the GitHub API or Docker registry API
+            IMAGE_NAME=$(echo "$image" | cut -d'/' -f2- | cut -d':' -f1)
+            IMAGE_TAG=$(echo "$image" | cut -d':' -f2)
+
+            # Use GitHub CLI to check if package exists (if available)
+            if command -v gh &> /dev/null; then
+              if gh api "/orgs/${IMAGE_PREFIX}/packages/container/${IMAGE_NAME}/versions" --jq ".[] | select(.metadata.container.tags[] == \"${IMAGE_TAG}\")" &> /dev/null; then
+                echo "✓ ${image_name} found in registry"
+                return 0
+              fi
+            fi
+
+            # Fallback: Try to pull image manifest using Docker registry API
+            # Extract registry host and path
+            REGISTRY_HOST=$(echo "$image" | cut -d'/' -f1)
+            IMAGE_PATH=$(echo "$image" | cut -d'/' -f2- | cut -d':' -f1)
+
+            # For GHCR, use token authentication
+            if [ "$REGISTRY_HOST" = "ghcr.io" ]; then
+              # Try to get manifest using curl
+              AUTH_TOKEN="${GITHUB_TOKEN:-${{ secrets.GITHUB_TOKEN }}}"
+
+              if response=$(curl -s -w "\n%{http_code}" \
+                -H "Authorization: Bearer ${AUTH_TOKEN}" \
+                -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+                "https://${REGISTRY_HOST}/v2/${IMAGE_PATH}/manifests/${IMAGE_TAG}" 2>/dev/null); then
+                http_code=$(echo "$response" | tail -n1)
+                if [ "$http_code" = "200" ]; then
+                  echo "✓ ${image_name} found in registry"
+                  return 0
+                fi
+              fi
+            fi
+
+            # If we can't verify via API, try docker pull (dry-run style check)
+            # This is a fallback that will fail if image doesn't exist
+            if command -v docker &> /dev/null; then
+              if docker manifest inspect "$image" &> /dev/null; then
+                echo "✓ ${image_name} found in registry"
+                return 0
+              fi
+            fi
+
+            echo "✗ ${image_name} not found in registry or cannot be verified"
+            return 1
+          }
+
+          # Verify both images
+          BACKEND_OK=false
+          WEB_OK=false
+
+          if verify_image "$BACKEND_IMAGE" "Backend image"; then
+            BACKEND_OK=true
+          fi
+
+          if verify_image "$WEB_IMAGE" "Web dashboard image"; then
+            WEB_OK=true
+          fi
+
+          # Fail if any image is missing
+          if [ "$BACKEND_OK" != "true" ] || [ "$WEB_OK" != "true" ]; then
+            echo "Error: One or more required images are missing in the registry"
+            echo "Backend image: $BACKEND_IMAGE"
+            echo "Web dashboard image: $WEB_IMAGE"
+            echo "Please ensure images are built and pushed before deploying to production"
+            exit 1
+          fi
+
+          echo "✓ All required images verified successfully"
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    environment:
+      name: production
+      url: https://app.aura.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Set up kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.3.0"
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > $HOME/.kube/config
+          kubectl config set-context --current --namespace=${{ env.KUBERNETES_NAMESPACE }}
+
+      - name: Verify cluster connection
+        run: kubectl cluster-info
+
+      - name: Update image tags in kustomization
+        run: |
+          IMAGE_TAG="${{ needs.pre-deployment-checks.outputs.image_tag }}"
+          cd k8s/overlays/production
+          kustomize edit set image \
+            aura-backend=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/aura-backend:$IMAGE_TAG \
+            aura-web-dashboard=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/aura-web-dashboard:$IMAGE_TAG
+
+      - name: Preview changes
+        run: |
+          echo "Preview of changes to be deployed:"
+          kubectl kustomize k8s/overlays/production | head -50
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -k k8s/overlays/production
+          kubectl rollout status deployment/backend -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=15m
+          kubectl rollout status deployment/web-dashboard -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=15m
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl get svc -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl get ingress -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl get hpa -n ${{ env.KUBERNETES_NAMESPACE }}
+
+      - name: Run health checks
+        run: |
+          # Wait for services to be ready after deployment
+          sleep 60
+          # Run comprehensive production health checks
+          chmod +x k8s/scripts/health-check.sh
+          ./k8s/scripts/health-check.sh production ${{ env.KUBERNETES_NAMESPACE }} 60 10
+
+      - name: Create deployment annotation
+        run: |
+          kubectl annotate deployment backend -n ${{ env.KUBERNETES_NAMESPACE }} \
+            deployment.kubernetes.io/revision-history-limit=10 \
+            --overwrite
+          kubectl annotate deployment web-dashboard -n ${{ env.KUBERNETES_NAMESPACE }} \
+            deployment.kubernetes.io/revision-history-limit=10 \
+            --overwrite
