@@ -1,5 +1,11 @@
 # Aura Monorepo
 
+[![Python CI](https://github.com/ofircohen205/aura/actions/workflows/python-ci.yml/badge.svg)](https://github.com/ofircohen205/aura/actions/workflows/python-ci.yml)
+[![TypeScript CI](https://github.com/ofircohen205/aura/actions/workflows/typescript-ci.yml/badge.svg)](https://github.com/ofircohen205/aura/actions/workflows/typescript-ci.yml)
+[![VSCode Extension](https://github.com/ofircohen205/aura/actions/workflows/vscode-extension-ci.yml/badge.svg)](https://github.com/ofircohen205/aura/actions/workflows/vscode-extension-ci.yml)
+[![GitHub App](https://github.com/ofircohen205/aura/actions/workflows/github-app-ci.yml/badge.svg)](https://github.com/ofircohen205/aura/actions/workflows/github-app-ci.yml)
+[![Docker Build](https://github.com/ofircohen205/aura/actions/workflows/docker-build.yml/badge.svg)](https://github.com/ofircohen205/aura/actions/workflows/docker-build.yml)
+
 Welcome to the **Aura** monorepo! This project follows a polyglot structure managing both Python and TypeScript components.
 
 ## Structure

@@ -10,7 +10,7 @@ on:
         required: false
         type: string
       dry_run:
-        description: "Dry run (build but don't publish)"
+        description: "Dry run (build but don't upload to release)"
         required: false
         type: boolean
         default: true
@@ -54,16 +54,13 @@ jobs:
           path: dist/
           retention-days: 30
 
-  publish:
-    name: Publish to PyPI
+  publish-github:
+    name: Publish to GitHub Releases
     runs-on: ubuntu-latest
     needs: [build]
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
-    environment:
-      name: pypi
-      url: https://pypi.org/project/aura-cli/
     permissions:
-      id-token: write
+      contents: write
 
     steps:
       - name: Download build artifacts
@@ -72,8 +69,35 @@ jobs:
           name: cli-dist
           path: dist/
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
-          packages-dir: dist/
-          skip-existing: true
+          files: dist/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Future: Uncomment to enable PyPI publishing
+  # publish-pypi:
+  #   name: Publish to PyPI
+  #   runs-on: ubuntu-latest
+  #   needs: [build]
+  #   if: github.event_name == 'release'
+  #   environment:
+  #     name: pypi
+  #     url: https://pypi.org/project/aura-cli/
+  #   permissions:
+  #     id-token: write
+  #
+  #   steps:
+  #     - name: Download build artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: cli-dist
+  #         path: dist/
+  #
+  #     - name: Publish to PyPI
+  #       uses: pypa/gh-action-pypi-publish@release/v1
+  #       with:
+  #         packages-dir: dist/
+  #         skip-existing: true
