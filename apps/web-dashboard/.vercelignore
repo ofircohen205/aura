@@ -35,6 +35,23 @@ apps/*/
 clients/
 libs/
 
+# Python files and directories (prevent Vercel from detecting Python)
+**/*.py
+**/*.pyc
+**/__pycache__/
+**/.venv/
+**/venv/
+**/env/
+**/.python-version
+**/pyproject.toml
+**/requirements.txt
+**/Pipfile
+**/poetry.lock
+**/uv.lock
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
 # Build artifacts (Vercel handles these)
 .next/
 out/
