@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import Link from "next/link";
 import { ROUTES, isSafeCallbackUrl } from "@/lib/routes";
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+function AuthLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -64,5 +64,25 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </header>
       <main className="flex-1 flex items-center justify-center p-4">{children}</main>
     </div>
+  );
+}
+
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background p-4">
+          <div className="text-center">
+            <div
+              className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"
+              aria-hidden="true"
+            ></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <AuthLayoutContent>{children}</AuthLayoutContent>
+    </Suspense>
   );
 }

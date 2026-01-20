@@ -5,13 +5,10 @@ const nextConfig = {
   ...(process.env.DOCKER_BUILD === "true" && { output: "standalone" }),
 
   // Optimize for production builds
-  swcMinify: true,
   compress: true,
 
   // Exclude devDependencies from serverless functions
-  experimental: {
-    serverComponentsExternalPackages: [],
-  },
+  serverExternalPackages: [],
 
   // Optimize images
   images: {
