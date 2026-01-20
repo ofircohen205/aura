@@ -25,8 +25,8 @@ The VSCode extension needs a robust "Host" process that can communicate with the
 
 - **Git Flow**: Create a new branch for this story and work only on that branch.
 - **Issue Updates**: Reference the GitHub Issue (check header) in your commits and PRs.
-- **Architecture**: Follow `docs/workflows/project-architecture.md` (VSCode Extension Architecture section).
-- **New Features**: Follow `docs/workflows/common-tasks.md`.
+- **Architecture**: Follow `docs/ARCHITECTURE.md` (VSCode Extension Architecture section).
+- **New Features**: Follow `docs/DEVELOPMENT.md` (Common Development Tasks section).
 
 ### Implementation Checklist
 

@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useFormSubmission } from "@/lib/hooks/useFormSubmission";
+import { ROUTES, isSafeCallbackUrl } from "@/lib/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -26,9 +31,22 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = useCallback(
+    async (data: LoginFormData) => {
+      await login(data);
+      // Redirect to callback URL or dashboard
+      const callbackUrl = searchParams.get("callbackUrl");
+      const redirectUrl =
+        callbackUrl && isSafeCallbackUrl(callbackUrl) ? callbackUrl : ROUTES.DASHBOARD.ROOT;
+      router.push(redirectUrl);
+    },
+    [login, router, searchParams]
+  );
+
+  const { submit, isLoading, error: submitError } = useFormSubmission(handleLogin);
 
   const {
     register,
@@ -36,20 +54,21 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    mode: "onSubmit", // Validate on submit
+    shouldUseNativeValidation: false, // Disable HTML5 validation to allow react-hook-form to handle it
   });
 
-  const onSubmit = async (data: LoginFormData) => {
-    try {
-      setError(null);
-      setIsLoading(true);
-      await login(data);
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const onSubmit = useCallback(
+    async (data: LoginFormData) => {
+      try {
+        await submit(data);
+      } catch (error) {
+        // Error is already handled by useFormSubmission hook
+        // This catch prevents unhandled promise rejection
+      }
+    },
+    [submit]
+  );
 
   return (
     <Card className="w-full max-w-md">
@@ -57,15 +76,15 @@ export function LoginForm() {
         <CardTitle>Login</CardTitle>
         <CardDescription>Enter your credentials to access your account</CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">{error}</div>
+          {submitError && (
+            <Alert variant="destructive" role="alert" aria-live="assertive">
+              <AlertDescription>{submitError}</AlertDescription>
+            </Alert>
           )}
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
@@ -80,9 +99,7 @@ export function LoginForm() {
             )}
           </div>
           <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium">
-              Password
-            </label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
@@ -103,9 +120,9 @@ export function LoginForm() {
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
-            <a href="/auth/register" className="text-primary hover:underline">
+            <Link href={ROUTES.AUTH.REGISTER} className="text-primary hover:underline">
               Register
-            </a>
+            </Link>
           </p>
         </CardFooter>
       </form>

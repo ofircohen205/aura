@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useFormSubmission } from "@/lib/hooks/useFormSubmission";
+import { ROUTES, isSafeCallbackUrl } from "@/lib/routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -45,9 +50,26 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register: registerUser } = useAuth();
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+
+  const handleRegister = useCallback(
+    async (data: Omit<RegisterFormData, "confirmPassword">) => {
+      await registerUser({
+        email: data.email,
+        username: data.username,
+        password: data.password,
+      });
+      // Redirect to callback URL or dashboard
+      const callbackUrl = searchParams.get("callbackUrl");
+      const redirectUrl =
+        callbackUrl && isSafeCallbackUrl(callbackUrl) ? callbackUrl : ROUTES.DASHBOARD.ROOT;
+      router.push(redirectUrl);
+    },
+    [registerUser, router, searchParams]
+  );
+
+  const { submit, isLoading, error: submitError } = useFormSubmission(handleRegister);
 
   const {
     register,
@@ -57,22 +79,21 @@ export function RegisterForm() {
     resolver: zodResolver(registerSchema),
   });
 
-  const onSubmit = async (data: RegisterFormData) => {
-    try {
-      setError(null);
-      setIsLoading(true);
-      await registerUser({
-        email: data.email,
-        username: data.username,
-        password: data.password,
-      });
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const onSubmit = useCallback(
+    async (data: RegisterFormData) => {
+      try {
+        await submit({
+          email: data.email,
+          username: data.username,
+          password: data.password,
+        });
+      } catch (error) {
+        // Error is already handled by useFormSubmission hook
+        // This catch prevents unhandled promise rejection
+      }
+    },
+    [submit]
+  );
 
   return (
     <Card className="w-full max-w-md">
@@ -80,15 +101,15 @@ export function RegisterForm() {
         <CardTitle>Create Account</CardTitle>
         <CardDescription>Enter your information to create a new account</CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">{error}</div>
+          {submitError && (
+            <Alert variant="destructive" role="alert" aria-live="assertive">
+              <AlertDescription>{submitError}</AlertDescription>
+            </Alert>
           )}
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
@@ -103,9 +124,7 @@ export function RegisterForm() {
             )}
           </div>
           <div className="space-y-2">
-            <label htmlFor="username" className="text-sm font-medium">
-              Username
-            </label>
+            <Label htmlFor="username">Username</Label>
             <Input
               id="username"
               type="text"
@@ -120,9 +139,7 @@ export function RegisterForm() {
             )}
           </div>
           <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium">
-              Password
-            </label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
@@ -137,9 +154,7 @@ export function RegisterForm() {
             )}
           </div>
           <div className="space-y-2">
-            <label htmlFor="confirmPassword" className="text-sm font-medium">
-              Confirm Password
-            </label>
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
             <Input
               id="confirmPassword"
               type="password"
@@ -160,9 +175,9 @@ export function RegisterForm() {
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <a href="/auth/login" className="text-primary hover:underline">
+            <Link href={ROUTES.AUTH.LOGIN} className="text-primary hover:underline">
               Login
-            </a>
+            </Link>
           </p>
         </CardFooter>
       </form>

@@ -1,9 +1,32 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { create } from "zustand";
 import { authApi } from "@/lib/api/auth";
+import { logger } from "@/lib/utils/logger";
 import type { User, UserLogin, UserRegister } from "@/types/api";
+
+// Token storage utilities
+const TOKEN_KEYS = {
+  ACCESS: "access_token",
+  REFRESH: "refresh_token",
+} as const;
+
+function getToken(key: keyof typeof TOKEN_KEYS): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEYS[key]);
+}
+
+function setToken(key: keyof typeof TOKEN_KEYS, value: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEYS[key], value);
+}
+
+function removeTokens(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEYS.ACCESS);
+  localStorage.removeItem(TOKEN_KEYS.REFRESH);
+}
 
 interface AuthState {
   user: User | null;
@@ -24,10 +47,8 @@ export const useAuthStore = create<AuthState>(set => ({
   login: async (credentials: UserLogin) => {
     try {
       const tokens = await authApi.login(credentials);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("access_token", tokens.access_token);
-        localStorage.setItem("refresh_token", tokens.refresh_token);
-      }
+      setToken("ACCESS", tokens.access_token);
+      setToken("REFRESH", tokens.refresh_token);
       const user = await authApi.getCurrentUser();
       set({ user, isAuthenticated: true, isLoading: false });
     } catch (error) {
@@ -39,10 +60,8 @@ export const useAuthStore = create<AuthState>(set => ({
   register: async (data: UserRegister) => {
     try {
       const tokens = await authApi.register(data);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("access_token", tokens.access_token);
-        localStorage.setItem("refresh_token", tokens.refresh_token);
-      }
+      setToken("ACCESS", tokens.access_token);
+      setToken("REFRESH", tokens.refresh_token);
       const user = await authApi.getCurrentUser();
       set({ user, isAuthenticated: true, isLoading: false });
     } catch (error) {
@@ -53,15 +72,15 @@ export const useAuthStore = create<AuthState>(set => ({
 
   logout: async () => {
     try {
-      await authApi.logout();
+      const refreshToken = getToken("REFRESH");
+      if (refreshToken) {
+        await authApi.logout(refreshToken);
+      }
     } catch (error) {
       // Continue with logout even if API call fails
-      console.error("Logout API call failed:", error);
+      logger.error("Logout API call failed", error);
     } finally {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-      }
+      removeTokens();
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
@@ -71,10 +90,7 @@ export const useAuthStore = create<AuthState>(set => ({
       const user = await authApi.getCurrentUser();
       set({ user, isAuthenticated: true, isLoading: false });
     } catch (error) {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-      }
+      removeTokens();
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
@@ -86,15 +102,45 @@ export const useAuthStore = create<AuthState>(set => ({
 
 export function useAuth() {
   const store = useAuthStore();
+  const { user, isLoading, fetchUser, setUser } = store;
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-    if (token && !store.user && !store.isLoading) {
-      store.fetchUser();
-    } else if (!token) {
-      store.setUser(null);
+    // Only run once on mount to avoid infinite loops
+    if (hasInitialized.current) return;
+
+    const token = getToken("ACCESS");
+    if (token && !user && !isLoading) {
+      hasInitialized.current = true;
+      fetchUser();
+    } else if (!token && user) {
+      hasInitialized.current = true;
+      setUser(null);
+    } else if (!token && !user && isLoading) {
+      hasInitialized.current = true;
+      useAuthStore.setState({ isLoading: false });
     }
-  }, [store]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run on mount
+
+  // Listen for storage changes (e.g., logout in another tab)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === TOKEN_KEYS.ACCESS || e.key === TOKEN_KEYS.REFRESH) {
+        const token = getToken("ACCESS");
+        if (!token && user) {
+          setUser(null);
+        } else if (token && !user && !isLoading) {
+          fetchUser();
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [user, isLoading, fetchUser, setUser]);
 
   return store;
 }

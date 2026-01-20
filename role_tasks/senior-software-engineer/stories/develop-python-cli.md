@@ -27,8 +27,8 @@ The CLI is the guardian of the codebase. It needs to intercept Git commands (`co
 
 - **Git Flow**: Create a new branch for this story and work only on that branch.
 - **Issue Updates**: Reference the GitHub Issue (check header) in your commits and PRs.
-- **Architecture**: Follow `docs/workflows/project-architecture.md` (CLI Architecture section).
-- **New Commands**: Follow `docs/workflows/common-tasks.md` (CLI: Adding a New Command).
+- **Architecture**: Follow `docs/ARCHITECTURE.md` (CLI Architecture section).
+- **New Commands**: Follow `docs/DEVELOPMENT.md` (Common Development Tasks section).
 
 ### Implementation Checklist
 

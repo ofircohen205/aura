@@ -4,6 +4,7 @@ Tests the workflow API v1 endpoints using the service layer.
 """
 
 import sys
+import time
 import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -43,6 +44,8 @@ async def test_trigger_struggle_workflow_simple():
         data = response.json()
         assert "thread_id" in data
         assert data["status"] == "completed"
+        assert "created_at" in data
+        assert data["type"] == "Struggle Detection"
         assert data["state"]["is_struggling"] is True
         assert data["state"]["lesson_recommendation"] is not None
 
@@ -63,6 +66,8 @@ async def test_trigger_struggle_workflow_not_struggling_simple():
         data = response.json()
         assert "thread_id" in data
         assert data["status"] == "completed"
+        assert "created_at" in data
+        assert data["type"] == "Struggle Detection"
         assert data["state"]["is_struggling"] is False
         assert data["state"]["lesson_recommendation"] is None
 
@@ -91,6 +96,8 @@ async def test_trigger_audit_workflow_with_violations_simple():
         data = response.json()
         assert "thread_id" in data
         assert data["status"] == "completed"
+        assert "created_at" in data
+        assert data["type"] == "Code Audit"
         assert data["state"]["status"] == "fail"  # Should fail due to print()
         assert len(data["state"]["violations"]) > 0
 
@@ -110,6 +117,8 @@ async def test_trigger_audit_workflow_clean_code_simple():
         data = response.json()
         assert "thread_id" in data
         assert data["status"] == "completed"
+        assert "created_at" in data
+        assert data["type"] == "Code Audit"
         assert data["state"]["status"] == "pass"
         assert len(data["state"]["violations"]) == 0
 
@@ -189,7 +198,8 @@ async def test_get_workflow_state_success():
                 "edit_frequency": 15.0,
                 "is_struggling": True,
                 "lesson_recommendation": "Test lesson",
-            }
+            },
+            "ts": time.time(),
         }
         mock_checkpointer_instance.aget.return_value = mock_checkpoint
         mock_get_checkpointer.return_value.__aenter__.return_value = mock_checkpointer_instance
@@ -201,4 +211,7 @@ async def test_get_workflow_state_success():
         data = response.json()
         assert data["thread_id"] == test_thread_id
         assert "state" in data
+        assert "created_at" in data
+        assert "type" in data
+        assert data["type"] == "Struggle Detection"
         assert data["state"]["is_struggling"] is True

@@ -25,8 +25,8 @@ The Aura backend needs to serve multiple clients (VSCode, CLI, GitHub App, Dashb
 
 - **Git Flow**: Create a new branch for this story and work only on that branch.
 - **Issue Updates**: Reference the GitHub Issue (check header) in your commits and PRs.
-- **Implementation**: Follow `docs/workflows/common-tasks.md` "Backend: Adding a New API Endpoint" (Model -> DAO -> Service -> API).
-- **Structure**: Follow `docs/workflows/project-architecture.md` "Backend Architecture".
+- **Implementation**: Follow `docs/DEVELOPMENT.md` "Backend: Adding a New API Endpoint" (Model -> DAO -> Service -> API).
+- **Structure**: Follow `docs/ARCHITECTURE.md` "Backend Architecture".
 
 ### Implementation Checklist
 

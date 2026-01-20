@@ -4,6 +4,7 @@ Workflows API Schemas
 Request and response models for workflows endpoints.
 """
 
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -38,3 +39,5 @@ class WorkflowResponse(BaseModel):
     thread_id: str = Field(..., description="Unique thread identifier for this workflow execution")
     status: str = Field(..., description="Workflow execution status (completed, failed, etc.)")
     state: dict[str, Any] | None = Field(None, description="Final workflow state")
+    created_at: datetime = Field(..., description="Workflow creation timestamp")
+    type: str = Field(..., description="Workflow type (e.g., 'Struggle Detection', 'Code Audit')")

@@ -4,11 +4,96 @@ This document describes how to set up and work with the development environment 
 
 > **Note**: This project uses **Docker-only development**. You don't need to install Python, Node.js, uv, or npm locally. Everything runs in Docker containers.
 
-## Prerequisites
+## Table of Contents
+
+1. [Getting Started](#getting-started)
+2. [Docker-Based Development](#docker-based-development)
+3. [Code Quality Tools](#code-quality-tools)
+4. [Pre-commit Hooks](#pre-commit-hooks)
+5. [Running Tests](#running-tests)
+6. [Common Development Tasks](#common-development-tasks)
+7. [CI/CD](#cicd)
+8. [Development Workflow](#development-workflow)
+9. [Best Practices](#best-practices)
+10. [Troubleshooting](#troubleshooting)
+
+## Getting Started
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed:
 
 - **Docker**: >= 20.10 (Required)
+  - [Install Docker](https://docs.docker.com/get-docker/)
 - **Docker Compose**: >= 2.0 (Required)
+  - Usually included with Docker Desktop
 - **Just**: (Optional, but recommended for convenient commands)
+  - [Install Just](https://github.com/casey/just#installation)
+
+### Installation
+
+No installation needed! Everything runs in Docker.
+
+### First Time Setup
+
+On first run, Docker will:
+
+1. Build container images
+2. Install Python dependencies (via uv)
+3. Install Node.js dependencies (via npm)
+4. Run database migrations
+5. Start all services
+
+This may take a few minutes. Subsequent starts are much faster.
+
+### Configuration
+
+The backend uses environment-based configuration. Create a `.env.local` file in the project root for local development:
+
+```bash
+# Environment
+ENVIRONMENT=local
+
+# Database Configuration
+# NOTE: These are example credentials for local development only
+# In production, use strong, unique credentials
+POSTGRES_DB_URI=postgresql+psycopg://aura:aura@localhost:5432/aura_db
+POSTGRES_POOL_MAX_SIZE=20
+POSTGRES_POOL_MIN_SIZE=5
+
+# CORS Configuration
+CORS_ALLOW_ORIGINS=["*"]
+CORS_ALLOW_CREDENTIALS=true
+CORS_ALLOW_METHODS=["*"]
+CORS_ALLOW_HEADERS=["*"]
+
+# API Configuration
+API_TITLE=Aura Backend
+API_VERSION=0.1.0
+
+# Logging Configuration
+LOG_LEVEL=INFO
+LOG_FORMAT=text
+```
+
+For production, use `.env.production` or set environment variables directly. The configuration system supports:
+
+- `.env.local` - Local development
+- `.env.staging` - Staging environment
+- `.env.production` - Production environment
+
+Set the `ENVIRONMENT` variable to select which config file to use.
+
+### Project Structure
+
+- `apps/`
+  - `backend`: Python FastAPI application
+  - `web-dashboard`: Next.js web application
+- `clients/`
+  - `cli`: Python command-line interface
+  - `vscode`: TypeScript VSCode extension
+- `libs/`
+  - `core-py`: Shared Python business logic
 
 ## Quick Start
 
@@ -32,8 +117,53 @@ This will start:
 ### Access Services
 
 - **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs (Swagger UI)
+- **Alternative API Docs**: http://localhost:8000/redoc (ReDoc)
 - **Web Dashboard**: http://localhost:3000
-- **API Docs**: http://localhost:8000/docs
+- **Database**: `localhost:5432` (default credentials for local dev only)
+
+### Running Commands
+
+All development commands run inside Docker containers:
+
+```bash
+# Run tests
+just test
+
+# Lint code
+just lint
+
+# Get shell in dev container
+just docker-shell
+
+# Run any command
+just docker-exec "your command here"
+```
+
+### Editing Code
+
+Edit files on your **host machine** using your preferred editor. Changes are automatically reflected in containers via volume mounts. Hot reload is enabled for both backend and web dashboard.
+
+### CLI Usage
+
+To use the CLI, run commands in the dev-tools container:
+
+```bash
+# Get shell
+just docker-shell
+
+# Then run CLI commands
+cd clients/cli
+uv run aura --help
+```
+
+### VSCode Extension
+
+The VSCode extension development still happens on your host machine:
+
+1. Navigate to `clients/vscode`
+2. Run `npm install` (or use Docker: `just docker-exec "cd clients/vscode && npm install"`)
+3. Open in VSCode and press `F5` to launch Extension Development Host
 
 ### Stop Services
 
@@ -89,7 +219,7 @@ Hot reload is enabled for both backend and web dashboard.
 
 ## Development Workflow
 
-For the complete development pipeline including Linear integration, see [Development Pipeline](workflows/development-pipeline.md).
+For the complete development pipeline including Linear integration, see [Development Workflow](#development-workflow) below.
 
 ### Common Development Tasks
 
@@ -377,30 +507,117 @@ just test-ts
 just docker-exec "cd apps/web-dashboard && npm test ExampleCard.test.tsx"
 ```
 
+### Web Dashboard Testing
+
+The web dashboard uses Vitest for unit/integration tests and Playwright for E2E tests.
+
+**Test Structure:**
+
+```
+tests/
+├── setup.ts              # Test setup and global mocks
+├── utils/
+│   └── test-utils.tsx    # Testing utilities and helpers
+├── unit/                 # Unit tests
+│   ├── components/       # Component tests
+│   └── lib/             # Utility function tests
+├── integration/          # Integration tests
+│   └── api/             # API client tests
+└── e2e/                  # End-to-end tests
+    ├── auth.spec.ts     # Authentication flow tests
+    └── dashboard.spec.ts # Dashboard navigation tests
+```
+
+**Running Tests:**
+
+```bash
+# Unit and integration tests (Vitest)
+npm test
+npm test -- --watch
+npm run test:ui
+npm run test:coverage
+
+# E2E tests (Playwright)
+npm run test:e2e
+npm run test:e2e -- --ui
+npm run test:e2e -- --headed
+```
+
+**Test Coverage Goals:**
+
+- Unit Tests: 80%+ coverage for components and utilities
+- Integration Tests: All API clients should have tests
+- E2E Tests: Critical user flows (auth, navigation, core features)
+
+**Best Practices:**
+
+1. Test user behavior, not implementation details
+2. Use semantic queries (getByRole, getByLabelText)
+3. Mock external dependencies (API calls, router)
+4. Keep tests isolated (cleanup between tests)
+5. Write descriptive test names
+6. Test error cases and edge cases
+
 ## Common Development Tasks
 
 ### Creating a New Feature
-
-For detailed examples of creating new features, see [Common Tasks](workflows/common-tasks.md).
 
 #### Backend: Adding a New API Endpoint
 
 The backend follows a layered architecture. You must add files in the specific order of dependencies: **Model → DAO → Service → API**.
 
 1. **Define Database Model** (`src/db/models/example.py`)
-2. **Create DAO** (`src/dao/example.py`) - Inherit from `BaseDAO`
+
+   Create the SQLAlchemy/SQLModel definition:
+
+   ```python
+   from sqlmodel import Field, SQLModel
+   from uuid import UUID, uuid4
+   from datetime import datetime
+
+   class Example(SQLModel, table=True):
+       id: UUID = Field(default_factory=uuid4, primary_key=True)
+       name: str
+       description: str
+       created_at: datetime = Field(default_factory=datetime.utcnow)
+   ```
+
+2. **Create DAO** (`src/dao/example.py`)
+
+   Inherit from `BaseDAO` to get standard CRUD operations automatically:
+
+   ```python
+   from src.dao.base import BaseDAO
+   from src.db.models.example import Example
+
+   class ExampleDAO(BaseDAO[Example, ExampleCreate, ExampleUpdate]):
+       pass
+
+   example_dao = ExampleDAO(Example)
+   ```
+
 3. **Create Service & Business Exceptions** (`src/services/example/`)
-4. **Create API Layer** (`src/api/v1/example/`) - Schemas, exceptions, endpoints
+
+   Define exceptions and implement service logic. See [Architecture Guide](ARCHITECTURE.md) for detailed examples.
+
+4. **Create API Layer** (`src/api/v1/example/`)
+
+   Create schemas, exception handlers, and endpoints. Each API module uses a FastAPI sub-application pattern.
+
 5. **Register Sub-Application** (`src/main.py`)
+
+   Mount the sub-application in the main FastAPI app.
 
 #### Frontend: Adding a New Feature
 
 The frontend uses a **Screaming Architecture**. All logic related to a feature stays within `src/features/`.
 
-1. Create feature structure: `src/features/example/` with subfolders
+1. Create feature structure: `src/features/example/` with subfolders (components, hooks, pages, services, stores, types)
 2. Create types, services, components, pages
 3. Export feature via `index.ts`
 4. Add route in router
+
+For detailed code examples, see the [Architecture Guide](ARCHITECTURE.md) and examples above.
 
 ### Database Migrations
 
@@ -568,9 +785,24 @@ If you see errors from ESLint or Prettier:
 1. Run `just lint-fix` to auto-fix issues
 2. Check `.eslintrc.json` and `.prettierrc.json` for configuration
 
+## Development Workflow
+
+The development pipeline follows these stages:
+
+1. **Read Task/Story** - Understand requirements from Linear
+2. **Plan Sub-tasks** - Break down into implementable pieces
+3. **Create Branch** - Create feature branch from main
+4. **Implement** - Each sub-task owned by dedicated role
+5. **Write Tests** - Ensure code quality
+6. **Code Review** - Review using appropriate roles
+7. **Fix Issues** - Address review feedback
+8. **Commit & Push** - Commit with proper conventions
+9. **Create PR** - Open pull request for review
+
+For detailed workflow information, see [Linear Integration Guide](LINEAR.md).
+
 ## Related Documentation
 
-- [Getting Started](GETTING_STARTED.md) - Initial setup guide
-- [Development Pipeline](workflows/development-pipeline.md) - Complete development workflow with Linear integration
-- [Common Tasks](workflows/common-tasks.md) - Detailed examples for creating features
-- [Project Architecture](workflows/project-architecture.md) - System architecture overview
+- [Linear Integration](LINEAR.md) - Linear workflow and automation
+- [Architecture Guide](ARCHITECTURE.md) - System architecture overview
+- [Deployment Guide](DEPLOYMENT.md) - Deployment procedures

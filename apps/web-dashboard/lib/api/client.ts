@@ -1,13 +1,26 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from "axios";
+import { logger } from "@/lib/utils/logger";
+import { navigateTo } from "@/lib/utils/navigation";
+import { getEnv } from "@/lib/utils/env";
+import { ROUTES } from "@/lib/routes";
+import { ENDPOINTS } from "./endpoints";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = getEnv("NEXT_PUBLIC_API_URL", "http://localhost:8000");
+
+// Token refresh queue to prevent race conditions
+interface QueuedRequest {
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
+}
 
 class ApiClient {
   private client: AxiosInstance;
+  private isRefreshing = false;
+  private failedQueue: QueuedRequest[] = [];
 
   constructor() {
     this.client = axios.create({
-      baseURL: `${API_BASE_URL}/api/v1`,
+      baseURL: API_BASE_URL,
       headers: {
         "Content-Type": "application/json",
       },
@@ -18,13 +31,25 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor to add auth token
+    // Request interceptor to add auth token and CSRF token
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         if (typeof window !== "undefined") {
+          // Add auth token
           const token = localStorage.getItem("access_token");
           if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
+          }
+
+          // Add CSRF token for state-changing operations
+          const csrfToken = this.getCsrfToken();
+          if (
+            csrfToken &&
+            config.headers &&
+            config.method &&
+            ["post", "put", "patch", "delete"].includes(config.method.toLowerCase())
+          ) {
+            config.headers["X-CSRF-Token"] = csrfToken;
           }
         }
         return config;
@@ -41,43 +66,101 @@ class ApiClient {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
         if (error.response?.status === 401 && !originalRequest._retry) {
+          // If already refreshing, queue this request
+          if (this.isRefreshing) {
+            try {
+              const token = await this.waitForTokenRefresh();
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+              }
+              return await this.client(originalRequest);
+            } catch (err) {
+              return Promise.reject(err);
+            }
+          }
+
           originalRequest._retry = true;
+          this.isRefreshing = true;
 
           try {
             const refreshToken = localStorage.getItem("refresh_token");
-            if (refreshToken) {
-              const response = await axios.post(
-                `${API_BASE_URL}/api/v1/auth/refresh`,
-                { refresh_token: refreshToken },
-                { withCredentials: true }
-              );
-
-              const { access_token, refresh_token: newRefreshToken } = response.data;
-              localStorage.setItem("access_token", access_token);
-              if (newRefreshToken) {
-                localStorage.setItem("refresh_token", newRefreshToken);
-              }
-
-              if (originalRequest.headers) {
-                originalRequest.headers.Authorization = `Bearer ${access_token}`;
-              }
-
-              return this.client(originalRequest);
+            if (!refreshToken) {
+              throw new Error("No refresh token available");
             }
+
+            // Use axios directly to avoid interceptor loop
+            const response = await axios.post(
+              `${API_BASE_URL}${ENDPOINTS.AUTH.REFRESH}`,
+              { refresh_token: refreshToken },
+              { withCredentials: true }
+            );
+
+            const { access_token, refresh_token: newRefreshToken } = response.data;
+            localStorage.setItem("access_token", access_token);
+            if (newRefreshToken) {
+              localStorage.setItem("refresh_token", newRefreshToken);
+            }
+
+            // Process queued requests
+            this.processQueue(access_token);
+
+            // Retry original request
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${access_token}`;
+            }
+
+            return await this.client(originalRequest);
           } catch (refreshError) {
-            // Refresh failed, redirect to login
+            // Refresh failed, reject all queued requests and redirect to login
+            this.processQueue(null, refreshError);
+            logger.error("Token refresh failed", refreshError, {
+              endpoint: originalRequest.url,
+            });
+
             if (typeof window !== "undefined") {
               localStorage.removeItem("access_token");
               localStorage.removeItem("refresh_token");
-              window.location.href = "/auth/login";
+              navigateTo(ROUTES.AUTH.LOGIN);
             }
             return Promise.reject(refreshError);
+          } finally {
+            this.isRefreshing = false;
           }
         }
 
         return Promise.reject(error);
       }
     );
+  }
+
+  private waitForTokenRefresh(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.failedQueue.push({ resolve, reject });
+    });
+  }
+
+  private processQueue(token: string | null, error?: unknown) {
+    this.failedQueue.forEach(promise => {
+      if (token) {
+        promise.resolve(token);
+      } else {
+        promise.reject(error || new Error("Token refresh failed"));
+      }
+    });
+    this.failedQueue = [];
+  }
+
+  private getCsrfToken(): string | null {
+    if (typeof document === "undefined") return null;
+    // CSRF token is set by backend in a cookie, accessible to JavaScript
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split("=");
+      if (name === "csrf-token") {
+        return decodeURIComponent(value);
+      }
+    }
+    return null;
   }
 
   get instance(): AxiosInstance {

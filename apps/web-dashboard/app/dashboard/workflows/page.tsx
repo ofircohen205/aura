@@ -1,19 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { workflowsApi } from "@/lib/api/workflows";
+import { extractErrorMessage } from "@/lib/utils/error-handler";
+import { logger } from "@/lib/utils/logger";
+import { useToastContext } from "@/components/ToastProvider";
 import type { WorkflowResponse, StruggleInput, AuditInput } from "@/types/api";
 
-// Mock data for now - will be replaced with actual API calls
-const mockWorkflows: (WorkflowResponse & { created_at: string; type: string })[] = [];
-
 export default function WorkflowsPage() {
-  const [workflows, setWorkflows] = useState(mockWorkflows);
+  const [workflows, setWorkflows] = useState<WorkflowResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [showStruggleForm, setShowStruggleForm] = useState(false);
   const [showAuditForm, setShowAuditForm] = useState(false);
   const [struggleData, setStruggleData] = useState<StruggleInput>({
@@ -26,42 +33,137 @@ export default function WorkflowsPage() {
     violations: [],
   });
 
-  const handleTriggerStruggle = async () => {
+  // Fetch workflows on component mount
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchWorkflows = async () => {
+      try {
+        setIsFetching(true);
+        setError(null);
+        const response = await workflowsApi.list();
+
+        // Don't update state if component unmounted
+        if (isCancelled) return;
+
+        // API now returns created_at and type, no transformation needed
+        const transformedWorkflows = response.items;
+        setWorkflows(transformedWorkflows);
+      } catch (err) {
+        if (isCancelled) return;
+        const errorMessage = extractErrorMessage(err);
+        setError(errorMessage);
+        logger.error("Failed to fetch workflows", err);
+      } finally {
+        if (!isCancelled) {
+          setIsFetching(false);
+        }
+      }
+    };
+
+    fetchWorkflows();
+
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const handleTriggerStruggle = useCallback(async () => {
+    setError(null);
+    setSuccess(null);
+
+    // Create optimistic workflow
+    const optimisticId = `temp-${Date.now()}`;
+    const optimisticWorkflow: WorkflowResponse = {
+      thread_id: optimisticId,
+      status: "pending",
+      created_at: new Date().toISOString(),
+      type: "Struggle Detection",
+    };
+
+    // Optimistically add to list
+    setWorkflows(prev => [...prev, optimisticWorkflow]);
+    setShowStruggleForm(false);
+
     try {
       setIsLoading(true);
       const result = await workflowsApi.triggerStruggle(struggleData);
-      setWorkflows([
-        ...workflows,
-        { ...result, created_at: new Date().toISOString(), type: "Struggle Detection" },
-      ]);
-      setShowStruggleForm(false);
+
+      // Replace optimistic with real result
+      setWorkflows(prev => prev.map(w => (w.thread_id === optimisticId ? result : w)));
+
       setStruggleData({ edit_frequency: 0, error_logs: [], history: [] });
-    } catch (error) {
-      console.error("Failed to trigger struggle workflow:", error);
+      setSuccess("Struggle detection workflow triggered successfully");
+
+      // Auto-dismiss success message after 5 seconds
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err) {
+      // Remove optimistic workflow on error
+      setWorkflows(prev => prev.filter(w => w.thread_id !== optimisticId));
+      const errorMessage = extractErrorMessage(err);
+      setError(errorMessage);
+      logger.error("Failed to trigger struggle workflow", err);
+      setShowStruggleForm(true); // Re-show form on error
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [struggleData]);
 
-  const handleTriggerAudit = async () => {
+  const handleTriggerAudit = useCallback(async () => {
+    setError(null);
+    setSuccess(null);
+
+    // Create optimistic workflow
+    const optimisticId = `temp-${Date.now()}`;
+    const optimisticWorkflow: WorkflowResponse = {
+      thread_id: optimisticId,
+      status: "pending",
+      created_at: new Date().toISOString(),
+      type: "Code Audit",
+    };
+
+    // Optimistically add to list
+    setWorkflows(prev => [...prev, optimisticWorkflow]);
+    setShowAuditForm(false);
+
     try {
       setIsLoading(true);
       const result = await workflowsApi.triggerAudit(auditData);
-      setWorkflows([
-        ...workflows,
-        { ...result, created_at: new Date().toISOString(), type: "Code Audit" },
-      ]);
-      setShowAuditForm(false);
+
+      // Replace optimistic with real result
+      setWorkflows(prev => prev.map(w => (w.thread_id === optimisticId ? result : w)));
+
       setAuditData({ diff_content: "", violations: [] });
-    } catch (error) {
-      console.error("Failed to trigger audit workflow:", error);
+      setSuccess("Code audit workflow triggered successfully");
+
+      // Auto-dismiss success message after 5 seconds
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err) {
+      // Remove optimistic workflow on error
+      setWorkflows(prev => prev.filter(w => w.thread_id !== optimisticId));
+      const errorMessage = extractErrorMessage(err);
+      setError(errorMessage);
+      logger.error("Failed to trigger audit workflow", err);
+      setShowAuditForm(true); // Re-show form on error
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [auditData]);
 
   return (
     <div className="space-y-6">
+      {error && (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {success && (
+        <Alert variant="success" role="status" aria-live="polite">
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Workflows</h1>
@@ -86,21 +188,32 @@ export default function WorkflowsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Edit Frequency</label>
+            <div className="space-y-2">
+              <Label htmlFor="edit-frequency">Edit Frequency</Label>
               <Input
+                id="edit-frequency"
                 type="number"
                 step="0.1"
+                min="0"
                 value={struggleData.edit_frequency}
-                onChange={e =>
-                  setStruggleData({ ...struggleData, edit_frequency: parseFloat(e.target.value) })
-                }
+                onChange={e => {
+                  const value = parseFloat(e.target.value);
+                  if (!isNaN(value) && value >= 0) {
+                    setStruggleData({ ...struggleData, edit_frequency: value });
+                  }
+                }}
+                aria-required="false"
+                aria-describedby="edit-frequency-help"
               />
+              <p id="edit-frequency-help" className="text-xs text-muted-foreground">
+                Number of edits per time period
+              </p>
             </div>
-            <div>
-              <label className="text-sm font-medium">Error Logs (one per line)</label>
-              <textarea
-                className="flex h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            <div className="space-y-2">
+              <Label htmlFor="error-logs">Error Logs (one per line)</Label>
+              <Textarea
+                id="error-logs"
+                className="min-h-[96px]"
                 value={struggleData.error_logs.join("\n")}
                 onChange={e =>
                   setStruggleData({
@@ -108,6 +221,7 @@ export default function WorkflowsPage() {
                     error_logs: e.target.value.split("\n").filter(line => line.trim()),
                   })
                 }
+                placeholder="Enter error messages, one per line"
               />
             </div>
             <div className="flex gap-2">
@@ -129,12 +243,15 @@ export default function WorkflowsPage() {
             <CardDescription>Perform static analysis on code changes</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Diff Content</label>
-              <textarea
-                className="flex h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+            <div className="space-y-2">
+              <Label htmlFor="diff-content">Diff Content</Label>
+              <Textarea
+                id="diff-content"
+                className="min-h-[128px] font-mono"
                 value={auditData.diff_content}
-                onChange={e => setAuditData({ ...auditData, diff_content: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setAuditData({ ...auditData, diff_content: e.target.value })
+                }
                 placeholder="Paste git diff content here..."
               />
             </div>
@@ -152,7 +269,22 @@ export default function WorkflowsPage() {
 
       <div>
         <h2 className="mb-4 text-xl font-semibold">Recent Workflows</h2>
-        {workflows.length === 0 ? (
+        {isFetching ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map(i => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-4 w-24 mt-2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4 mt-2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : workflows.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
               No workflows yet. Trigger a workflow to get started.

@@ -7,6 +7,7 @@ Extracts workflow execution logic from API endpoints.
 
 import time
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from core_py.workflows.audit import build_audit_graph
@@ -71,7 +72,7 @@ class WorkflowService:
             history: Previous attempt history
 
         Returns:
-            Dictionary with thread_id, status, and final state
+            Dictionary with thread_id, status, state, created_at, and type
 
         Raises:
             WorkflowExecutionError: If workflow execution fails
@@ -79,6 +80,7 @@ class WorkflowService:
         """
         thread_id = str(uuid.uuid4())
         config = {"configurable": {"thread_id": thread_id}}
+        created_at = datetime.now(UTC)
 
         logger.info(
             "Struggle workflow triggered",
@@ -164,6 +166,8 @@ class WorkflowService:
                     "thread_id": thread_id,
                     "status": "completed",
                     "state": final_state,
+                    "created_at": created_at,
+                    "type": "Struggle Detection",
                 }
 
         except WorkflowExecutionError:
@@ -209,6 +213,7 @@ class WorkflowService:
         """
         thread_id = str(uuid.uuid4())
         config = {"configurable": {"thread_id": thread_id}}
+        created_at = datetime.now(UTC)
 
         logger.info(
             "Audit workflow triggered",
@@ -295,6 +300,8 @@ class WorkflowService:
                     "thread_id": thread_id,
                     "status": "completed",
                     "state": final_state,
+                    "created_at": created_at,
+                    "type": "Code Audit",
                 }
 
         except WorkflowExecutionError:
@@ -327,7 +334,7 @@ class WorkflowService:
             thread_id: Unique thread identifier
 
         Returns:
-            Dictionary with thread_id, status, and state
+            Dictionary with thread_id, status, state, created_at, and type
 
         Raises:
             WorkflowNotFoundError: If workflow is not found
@@ -359,6 +366,7 @@ class WorkflowService:
 
                 # Extract state from checkpoint
                 channel_values = checkpoint.get("channel_values", {})
+                checkpoint_metadata = checkpoint.get("metadata", {})
 
                 # Derive status from state if possible
                 workflow_status = "unknown"
@@ -373,11 +381,63 @@ class WorkflowService:
                 elif channel_values:
                     workflow_status = "completed"
 
+                # Determine workflow type from state
+                # Struggle workflows have edit_frequency, error_logs, lesson_recommendation
+                # Audit workflows have diff_content, violations
+                workflow_type = checkpoint_metadata.get("type")
+                if not workflow_type:
+                    if (
+                        "edit_frequency" in channel_values
+                        or "lesson_recommendation" in channel_values
+                    ):
+                        workflow_type = "Struggle Detection"
+                    elif "diff_content" in channel_values or "violations" in channel_values:
+                        workflow_type = "Code Audit"
+                    else:
+                        workflow_type = "Unknown"
+
+                # Get created_at from checkpoint metadata or use checkpoint timestamp
+                created_at = checkpoint_metadata.get("created_at")
+                if created_at:
+                    # Parse if it's a string, otherwise assume it's already a datetime
+                    if isinstance(created_at, str):
+                        try:
+                            created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                        except (ValueError, AttributeError):
+                            logger.warning(
+                                "Could not parse created_at from metadata, using checkpoint timestamp",
+                                extra={"thread_id": thread_id, "created_at": created_at},
+                            )
+                            created_at = None
+                    elif not isinstance(created_at, datetime):
+                        created_at = None
+
+                if not created_at:
+                    # Try to get from checkpoint timestamp
+                    checkpoint_ts = checkpoint.get("ts")
+                    if checkpoint_ts:
+                        if isinstance(checkpoint_ts, int | float):
+                            created_at = datetime.fromtimestamp(checkpoint_ts, tz=UTC)
+                        else:
+                            created_at = datetime.now(UTC)
+                            logger.warning(
+                                "Checkpoint timestamp is not numeric, using current time",
+                                extra={"thread_id": thread_id},
+                            )
+                    else:
+                        # Last resort: use current time (shouldn't happen in practice)
+                        created_at = datetime.now(UTC)
+                        logger.warning(
+                            "Could not determine workflow created_at, using current time",
+                            extra={"thread_id": thread_id},
+                        )
+
                 logger.debug(
                     "Workflow state retrieved",
                     extra={
                         "thread_id": thread_id,
                         "status": workflow_status,
+                        "type": workflow_type,
                     },
                 )
 
@@ -385,6 +445,8 @@ class WorkflowService:
                     "thread_id": thread_id,
                     "status": workflow_status,
                     "state": channel_values,
+                    "created_at": created_at,
+                    "type": workflow_type,
                 }
 
         except (WorkflowNotFoundError, WorkflowExecutionError):

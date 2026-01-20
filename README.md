@@ -46,7 +46,7 @@ Each API module (workflows, events, audit) is a self-contained sub-application w
 - Exception handlers
 - Proper error responses
 
-See [docs/workflows/project-architecture.md](docs/workflows/project-architecture.md) for detailed architecture documentation.
+See [Architecture Guide](docs/ARCHITECTURE.md) for detailed architecture documentation.
 
 ## Setup
 
@@ -71,14 +71,18 @@ This will start:
 
 ### Installation
 
-No installation needed! Everything runs in Docker containers. See [Getting Started Guide](docs/GETTING_STARTED.md) for detailed setup instructions.
+No installation needed! Everything runs in Docker containers. See [Development Guide](docs/DEVELOPMENT.md) for detailed setup instructions.
 
 ## Documentation
 
 - **[User Guide](docs/USER_GUIDE.md)** - Comprehensive guide to using Aura (API, CLI, workflows)
-- **[Getting Started](docs/GETTING_STARTED.md)** - Setup and installation guide
-- **[Development Guide](docs/DEVELOPMENT.md)** - Development workflow and practices
-- **[Project Architecture](docs/workflows/project-architecture.md)** - System architecture overview
+- **[Development Guide](docs/DEVELOPMENT.md)** - Setup, development workflow, and practices
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - System architecture overview
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Deployment procedures, infrastructure, and CI/CD
+- **[RAG Pipeline](docs/RAG.md)** - RAG pipeline documentation, chunking strategies, and model selection
+- **[Linear Integration](docs/LINEAR.md)** - Project management and workflow
+- **[Requirements](docs/REQUIREMENTS.md)** - Product and technical requirements
+- **[Security Guide](docs/SECURITY.md)** - Security features and best practices
 
 ## Development
 

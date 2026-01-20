@@ -67,7 +67,7 @@ http://localhost:8000/api/v1
 
 ### Authentication
 
-Currently, the API does not require authentication for local development. In production, API keys or OAuth tokens will be required.
+The API uses JWT-based authentication. See [Authentication API](#authentication-api) section below for detailed authentication endpoints and flows.
 
 ### Endpoints
 
@@ -227,6 +227,78 @@ The Events API ingests events from various clients (VSCode extension, CLI, GitHu
 - `200 OK`: Event ingested successfully
 - `400 Bad Request`: Invalid event data
 - `500 Internal Server Error`: Event processing failed
+
+#### Authentication API
+
+The Authentication API provides user registration, login, token management, and user profile endpoints.
+
+##### Public Endpoints
+
+- `POST /api/v1/auth/register` - Register a new user
+- `POST /api/v1/auth/login` - Authenticate and receive tokens
+- `POST /api/v1/auth/refresh` - Refresh access token
+- `POST /api/v1/auth/logout` - Revoke refresh token
+
+##### Protected Endpoints
+
+- `GET /api/v1/auth/me` - Get current user profile
+- `PATCH /api/v1/auth/me` - Update current user profile
+
+##### Admin Endpoints
+
+- `GET /api/v1/auth/users` - List users (paginated)
+- `POST /api/v1/auth/users/bulk` - Bulk create users
+- `PATCH /api/v1/auth/users/bulk` - Bulk update users
+- `DELETE /api/v1/auth/users/bulk` - Bulk delete users
+
+**Authentication Flow:**
+
+1. **Registration**: User creates account with email, username, password
+2. **Login**: User authenticates and receives access + refresh tokens
+3. **API Requests**: Include access token in `Authorization: Bearer <token>` header
+4. **Token Refresh**: Use refresh token to get new access token when expired
+5. **Logout**: Revoke refresh token to invalidate session
+
+**Security Features:**
+
+- Password Hashing: Bcrypt with 12 rounds
+- JWT Tokens: HS256 algorithm with configurable expiration
+- Refresh Tokens: Stored in Redis with TTL
+- CSRF Protection: Double-submit cookie pattern
+- Security Headers: HSTS, CSP, X-Frame-Options, etc.
+- Rate Limiting: Token bucket algorithm with Redis
+
+**Examples:**
+
+Register User:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "username": "johndoe",
+    "password": "securepassword123"
+  }'
+```
+
+Login:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securepassword123"
+  }'
+```
+
+Get Current User:
+
+```bash
+curl -X GET http://localhost:8000/api/v1/auth/me \
+  -H "Authorization: Bearer <access_token>"
+```
 
 #### Audit API
 
@@ -695,10 +767,10 @@ curl http://localhost:8000/health/cache
 ### Getting Help
 
 - Check the [Development Documentation](DEVELOPMENT.md)
-- Review [Project Architecture](workflows/project-architecture.md)
+- Review [Architecture Guide](ARCHITECTURE.md)
 - Open an issue on GitHub
 - Check logs for detailed error messages
 
 ---
 
-**Last Updated:** 2024-01-15
+**Last Updated:** 2026-01-20

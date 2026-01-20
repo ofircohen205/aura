@@ -36,6 +36,8 @@ export interface WorkflowResponse {
   thread_id: string;
   status: string;
   state?: Record<string, unknown>;
+  created_at: string;
+  type: string;
 }
 
 export interface StruggleInput {
@@ -50,9 +52,12 @@ export interface AuditInput {
 }
 
 export interface AuditResponse {
+  id: string;
   status: string;
   repo: string;
   message: string;
+  created_at?: string;
+  violations?: string[];
 }
 
 export interface PaginationParams {
