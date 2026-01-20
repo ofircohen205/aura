@@ -5,6 +5,7 @@ Provides Redis client for authentication and other services.
 Uses connection pooling and handles errors gracefully.
 """
 
+import contextlib
 import os
 from typing import Any
 
@@ -57,7 +58,10 @@ async def get_redis_client(db_number: int | None = None):
     if db_number is None:
         db_number = REDIS_AUTH_DB
 
-    # Return existing client if available
+    # Check if existing client is still valid
+    # Note: We can't easily check if the event loop matches, so we'll
+    # rely on the client to raise an error if there's a mismatch, which
+    # we'll catch and handle by recreating the client
     if db_number in _redis_clients:
         return _redis_clients[db_number]
 
@@ -96,6 +100,43 @@ async def get_redis_client(db_number: int | None = None):
         return None
 
 
+async def close_redis_clients():
+    """
+    Close all Redis client connections.
+
+    This should be called during application shutdown or test cleanup
+    to properly close connections and avoid event loop issues.
+    """
+    global _redis_clients, _redis_available
+
+    for db_number, client in list(_redis_clients.items()):
+        try:
+            await client.aclose()
+            logger.debug(f"Redis client closed for database {db_number}")
+        except Exception as e:
+            # Handle cases where event loop is already closed
+            error_msg = str(e).lower()
+            if any(
+                phrase in error_msg
+                for phrase in [
+                    "event loop is closed",
+                    "no running event loop",
+                    "loop is closed",
+                ]
+            ):
+                logger.debug(
+                    f"Redis client for database {db_number} could not be closed (event loop closed)"
+                )
+            else:
+                logger.warning(
+                    f"Error closing Redis client for database {db_number}: {e}",
+                    exc_info=True,
+                )
+
+    _redis_clients.clear()
+    _redis_available = False
+
+
 async def test_redis_connection(db_number: int | None = None) -> bool:
     """
     Test Redis connection availability.
@@ -116,5 +157,25 @@ async def test_redis_connection(db_number: int | None = None) -> bool:
         await client.ping()
         return True
     except Exception as e:
-        logger.warning(f"Redis connection test failed: {e}")
+        # Handle event loop closure gracefully
+        error_msg = str(e).lower()
+        if any(
+            phrase in error_msg
+            for phrase in [
+                "event loop is closed",
+                "no running event loop",
+                "loop is closed",
+                "got future attached to a different loop",
+            ]
+        ):
+            logger.debug(f"Redis connection test skipped (event loop issue): {e}")
+            # Clear the cached client so it can be recreated with the correct event loop
+            if db_number is None:
+                db_number = REDIS_AUTH_DB
+            if db_number in _redis_clients:
+                with contextlib.suppress(Exception):
+                    await _redis_clients[db_number].aclose()
+                del _redis_clients[db_number]
+        else:
+            logger.warning(f"Redis connection test failed: {e}")
         return False

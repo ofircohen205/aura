@@ -54,10 +54,40 @@ These secrets contain base64-encoded kubeconfig files for accessing your Kuberne
 
 **Important Notes:**
 
+- **Remote Cluster Required**: The kubeconfig must point to a remote/cloud Kubernetes cluster accessible from the internet. Local clusters (minikube, kind, Docker Desktop) or port-forwarded connections will NOT work in CI/CD.
 - Each kubeconfig should have at least one context defined
 - The kubeconfig must be valid YAML/JSON format
 - Ensure the service account/user in the kubeconfig has necessary permissions
 - For production, use a dedicated service account with least privilege
+- The cluster server URL must be accessible from GitHub Actions runners (public internet)
+
+**Getting kubeconfig for remote clusters:**
+
+```bash
+# Google Kubernetes Engine (GKE)
+gcloud container clusters get-credentials CLUSTER_NAME \
+  --region REGION \
+  --project PROJECT_ID
+
+# Amazon EKS
+aws eks update-kubeconfig \
+  --name CLUSTER_NAME \
+  --region REGION
+
+# Azure Kubernetes Service (AKS)
+az aks get-credentials \
+  --resource-group RESOURCE_GROUP \
+  --name CLUSTER_NAME
+
+# Generic/Other clusters
+# Export the kubeconfig for the remote cluster
+kubectl config view --flatten > remote-kubeconfig.yaml
+
+# Verify the server URL is remote (not localhost)
+kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'
+# Should show something like: https://xxx.xxx.xxx.xxx or https://cluster.example.com
+# NOT: https://127.0.0.1:xxxxx or https://localhost:xxxxx
+```
 
 ### 2. Vercel Deployment Secrets
 
@@ -217,6 +247,30 @@ gh secret list | grep KUBECONFIG_DEV
 - Verify the secret name matches exactly (case-sensitive)
 - Check that the secret was added to the correct repository
 - Ensure you're checking the right environment (if using GitHub Environments)
+
+### "Kubeconfig points to localhost"
+
+- **Problem**: Your kubeconfig is configured for a local Kubernetes cluster (minikube, kind, Docker Desktop) or uses a port-forward
+- **Solution**: You need a kubeconfig for a remote/cloud Kubernetes cluster
+- **Steps**:
+  1. Get credentials for your remote cluster using the cloud provider CLI (see examples above)
+  2. Verify the server URL: `kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'`
+  3. The URL should be a remote address (e.g., `https://xxx.xxx.xxx.xxx`), not `127.0.0.1` or `localhost`
+  4. Encode and set the new kubeconfig: `cat ~/.kube/config | base64 | gh secret set KUBECONFIG_DEV`
+
+### "Connection to the server was refused"
+
+- **Problem**: The cluster server URL is not accessible from GitHub Actions
+- **Possible causes**:
+  - Kubeconfig points to localhost (see above)
+  - Cluster is behind a firewall/VPN
+  - Network restrictions block GitHub Actions IPs
+  - Cluster credentials are expired
+- **Solutions**:
+  - Use a cloud-managed Kubernetes cluster with public API endpoint
+  - Ensure firewall rules allow access from GitHub Actions IP ranges
+  - Verify credentials are valid: `kubectl cluster-info` (should work locally)
+  - Check if the cluster requires VPN access (not compatible with CI/CD)
 
 ## Summary Checklist
 

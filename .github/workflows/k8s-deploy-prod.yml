@@ -208,8 +208,43 @@ jobs:
           # Verify context is set
           kubectl config current-context
 
+          # Validate that the server URL is not localhost (won't work in CI)
+          SERVER_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || echo "")
+          if [ -z "$SERVER_URL" ]; then
+            echo "::error::Could not extract server URL from kubeconfig"
+            exit 1
+          fi
+
+          echo "Cluster server URL: $SERVER_URL"
+
+          # Check if server is localhost (won't work in CI)
+          if echo "$SERVER_URL" | grep -qE "^(https?://)?(127\.0\.0\.1|localhost|::1)"; then
+            echo "::error::Kubeconfig points to localhost, which won't work in CI/CD"
+            echo ""
+            echo "The kubeconfig server URL is: $SERVER_URL"
+            echo ""
+            echo "This appears to be a local Kubernetes cluster (minikube, kind, etc.) or a port-forward."
+            echo "For CI/CD deployments, you need a kubeconfig for a remote/cloud Kubernetes cluster."
+            echo ""
+            echo "See docs/GITHUB_SECRETS.md for instructions on getting a remote cluster kubeconfig."
+            exit 1
+          fi
+
       - name: Verify cluster connection
-        run: kubectl cluster-info
+        run: |
+          echo "Verifying connection to cluster..."
+          if ! kubectl cluster-info &> /tmp/cluster-info.log; then
+            echo "::error::Failed to connect to Kubernetes cluster"
+            echo ""
+            echo "Cluster connection failed. See docs/GITHUB_SECRETS.md for troubleshooting."
+            echo ""
+            echo "Server URL: $(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || echo 'unknown')"
+            echo ""
+            echo "Error details:"
+            cat /tmp/cluster-info.log
+            exit 1
+          fi
+          echo "✓ Successfully connected to cluster"
 
       - name: Update image tags in kustomization
         run: |

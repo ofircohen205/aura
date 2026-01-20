@@ -14,6 +14,35 @@ from httpx import ASGITransport, AsyncClient
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
+@pytest.fixture(autouse=True)
+async def reset_redis_clients():
+    """
+    Reset Redis clients before each test to avoid event loop issues.
+
+    This ensures Redis clients are created fresh with the correct event loop
+    for each test, preventing "got Future attached to a different loop" errors.
+    """
+    # Clean up any existing Redis clients before the test
+    try:
+        from services.redis import close_redis_clients
+
+        await close_redis_clients()
+    except Exception:
+        # Don't fail if cleanup fails (e.g., no clients exist)
+        pass
+
+    yield
+
+    # Clean up after test as well
+    try:
+        from services.redis import close_redis_clients
+
+        await close_redis_clients()
+    except Exception:
+        # Don't fail if cleanup fails
+        pass
+
+
 @pytest.fixture
 async def clean_test_users(init_test_db) -> AsyncGenerator[None]:
     """
@@ -29,6 +58,15 @@ async def clean_test_users(init_test_db) -> AsyncGenerator[None]:
     from db.models.user import User
 
     yield
+
+    # Clean up Redis clients first to avoid event loop issues
+    try:
+        from services.redis import close_redis_clients
+
+        await close_redis_clients()
+    except Exception:
+        # Don't fail the test if Redis cleanup fails
+        pass
 
     # Clean up after test only
     # Using unique user data means we don't need pre-test cleanup

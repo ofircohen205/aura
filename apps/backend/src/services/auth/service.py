@@ -212,6 +212,23 @@ class AuthService:
                     extra={"user_id": str(user.id), "token": token[:10] + "..."},
                 )
             except Exception as e:
+                # Check if this is an event loop error (common in tests)
+                error_msg = str(e).lower()
+                if any(
+                    phrase in error_msg
+                    for phrase in [
+                        "event loop is closed",
+                        "no running event loop",
+                        "loop is closed",
+                        "got future attached to a different loop",
+                    ]
+                ):
+                    logger.warning(
+                        f"Failed to store refresh token in Redis due to event loop issue: {e}"
+                    )
+                    # In test environments, this might be acceptable
+                    # but in production, we should raise
+                    raise RuntimeError("Redis operation failed due to event loop issue") from e
                 logger.error(f"Failed to store refresh token in Redis: {e}", exc_info=True)
                 raise
         else:
