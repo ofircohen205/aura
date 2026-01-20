@@ -6,6 +6,7 @@ Requires database to be running.
 """
 
 import uuid
+from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -14,7 +15,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
 @pytest.fixture
-async def clean_test_users(init_test_db):
+async def clean_test_users(init_test_db) -> AsyncGenerator[None]:
     """
     Clean up test users after each test.
 
@@ -31,20 +32,43 @@ async def clean_test_users(init_test_db):
 
     # Clean up after test only
     # Using unique user data means we don't need pre-test cleanup
-    async with AsyncSession(async_engine) as session:
-        try:
-            stmt = select(User).where(
-                (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
-            )
-            result = await session.execute(stmt)
-            users = result.scalars().all()
-            for user in users:
-                await session.delete(user)
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            # Don't fail the test if cleanup fails
+    # Wrap in try/except to handle event loop closure and other errors gracefully
+    try:
+        async with AsyncSession(async_engine) as session:
+            try:
+                stmt = select(User).where(
+                    (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
+                )
+                result = await session.execute(stmt)
+                users = result.scalars().all()
+                for user in users:
+                    await session.delete(user)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                # Don't fail the test if cleanup fails
+                pass
+    except (RuntimeError, OSError) as e:
+        # Handle "Event loop is closed" and connection errors gracefully
+        error_msg = str(e).lower()
+        if any(
+            phrase in error_msg
+            for phrase in [
+                "event loop is closed",
+                "no running event loop",
+                "connection",
+                "closed",
+            ]
+        ):
+            # Event loop or connection is closed, cleanup cannot proceed
+            # This is acceptable for test cleanup
             pass
+        else:
+            # Re-raise other RuntimeErrors/OSErrors that we don't expect
+            raise
+    except Exception:
+        # Don't fail the test if cleanup fails for any other reason
+        pass
 
 
 @pytest.fixture

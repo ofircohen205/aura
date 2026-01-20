@@ -48,6 +48,9 @@ def test_events_endpoint(app_client, csrf_headers, csrf_token):
 
 
 def test_audit_endpoint():
-    response = client.get("/api/v1/audit/?repo_path=./")
+    """Test audit trigger endpoint."""
+    response = client.get("/api/v1/audit/trigger?repo_path=./")
     assert response.status_code == 200
-    assert response.json()["status"] == "audit_started"
+    data = response.json()
+    assert "status" in data
+    assert data["status"] == "audit_started"

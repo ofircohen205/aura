@@ -1,0 +1,56 @@
+# Vercel ignore file - exclude unnecessary files from deployment
+
+# Test files
+tests/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+vitest.config.ts
+playwright.config.ts
+test-results/
+playwright-report/
+coverage/
+
+# Docker files
+Dockerfile.dev
+Dockerfile.prod
+docker-compose*.yml
+
+# Development files
+.vitest/
+*.log
+.DS_Store
+
+# Documentation
+*.md
+!README.md
+
+# CI/CD
+.github/
+
+# Other apps in monorepo (if deploying from root)
+apps/backend/
+apps/*/
+clients/
+libs/
+
+# Build artifacts (Vercel handles these)
+.next/
+out/
+dist/
+
+# Environment files (Vercel uses its own)
+.env*.local
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+.gitmodules

@@ -67,7 +67,3 @@ export default function LoginPage() {
     </Suspense>
   );
 }
-
-// Force dynamic rendering to avoid useSearchParams SSR issues
-export const dynamic = "force-dynamic";
-export const revalidate = 0;

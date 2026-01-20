@@ -4,11 +4,7 @@ Common API Schemas
 Shared request and response models used across multiple API modules.
 """
 
-from typing import Generic, TypeVar
-
 from pydantic import BaseModel, Field
-
-T = TypeVar("T")
 
 
 class PaginationParams(BaseModel):
@@ -28,7 +24,7 @@ class PaginationParams(BaseModel):
         return self.page_size
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
+class PaginatedResponse[T](BaseModel):
     """Generic paginated response wrapper."""
 
     items: list[T] = Field(..., description="List of items in current page")
