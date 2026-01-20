@@ -8,7 +8,6 @@ import type { AuditResponse } from "@/types/api";
 
 export default function AuditDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  // In a real implementation, fetch audit details by ID
   const audit: AuditResponse & { id: string; created_at: string; violations?: string[] } = {
     id,
     status: "completed",

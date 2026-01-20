@@ -8,7 +8,6 @@ import type { WorkflowResponse } from "@/types/api";
 
 export default function WorkflowDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  // In a real implementation, fetch workflow details by ID
   const workflow: WorkflowResponse & { created_at?: string; type?: string } = {
     thread_id: id,
     status: "completed",

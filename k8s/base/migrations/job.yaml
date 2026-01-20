@@ -40,6 +40,7 @@ spec:
         - name: flyway
           image: flyway/flyway:10
           command:
+            - flyway
             - -connectRetries=60
             - -url=jdbc:postgresql://postgres:5432/$(POSTGRES_DB)
             - -user=$(POSTGRES_USER)

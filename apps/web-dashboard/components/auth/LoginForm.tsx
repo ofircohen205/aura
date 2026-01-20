@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,20 +29,13 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { login } = useAuth();
 
   const handleLogin = useCallback(
     async (data: LoginFormData) => {
       await login(data);
-      // Redirect to callback URL or dashboard
-      const callbackUrl = searchParams.get("callbackUrl");
-      const redirectUrl =
-        callbackUrl && isSafeCallbackUrl(callbackUrl) ? callbackUrl : ROUTES.DASHBOARD.ROOT;
-      router.push(redirectUrl);
     },
-    [login, router, searchParams]
+    [login]
   );
 
   const { submit, isLoading, error: submitError } = useFormSubmission(handleLogin);
@@ -54,18 +46,15 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    mode: "onSubmit", // Validate on submit
-    shouldUseNativeValidation: false, // Disable HTML5 validation to allow react-hook-form to handle it
+    mode: "onSubmit",
+    shouldUseNativeValidation: false,
   });
 
   const onSubmit = useCallback(
     async (data: LoginFormData) => {
       try {
         await submit(data);
-      } catch (error) {
-        // Error is already handled by useFormSubmission hook
-        // This catch prevents unhandled promise rejection
-      }
+      } catch (error) {}
     },
     [submit]
   );

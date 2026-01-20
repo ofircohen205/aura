@@ -15,33 +15,25 @@ from sqlmodel import SQLModel, create_engine  # noqa: F401
 
 from core.config import get_settings
 
-# Re-export AsyncSession for centralized imports
 AsyncSession = _AsyncSession
 
 settings = get_settings()
 
-# Convert postgresql+psycopg:// to postgresql+asyncpg:// for async engine
-# Also handle case where URI is already in asyncpg format
 if "postgresql+psycopg://" in settings.postgres_db_uri:
     async_db_uri = settings.postgres_db_uri.replace(
         "postgresql+psycopg://", "postgresql+asyncpg://"
     )
 elif "postgresql+asyncpg://" not in settings.postgres_db_uri:
-    # If neither format is present, assume psycopg and convert
     async_db_uri = settings.postgres_db_uri.replace("postgresql://", "postgresql+asyncpg://")
 else:
     async_db_uri = settings.postgres_db_uri
 
-# Create async engine
-# Note: SQLModel's create_engine is for synchronous engines.
-# For async operations, we use create_async_engine from SQLAlchemy.
-# See: https://sqlmodel.tiangolo.com/tutorial/create-db-and-table/
 async_engine = create_async_engine(
     async_db_uri,
     echo=settings.log_level == "DEBUG",
     pool_size=settings.postgres_pool_max_size,
     max_overflow=0,
-    pool_pre_ping=True,  # Verify connections before using
+    pool_pre_ping=True,
 )
 
 
@@ -64,17 +56,17 @@ async def get_session() -> AsyncGenerator[_AsyncSession]:
         try:
             yield session
             await session.commit()
-        except Exception:
+        except Exception as exc:
             await session.rollback()
-            logger.error("Database session rollback due to error", exc_info=True)
+            from core.exceptions import BaseApplicationException
+
+            if not isinstance(exc, BaseApplicationException):
+                logger.error("Database session rollback due to unexpected error", exc_info=True)
             raise
-        # Context manager handles session.close() automatically
 
 
-# FastAPI dependency alias
 SessionDep = Depends(get_session)
 
-# Re-export for type hints
 __all__ = ["AsyncSession", "SessionDep", "get_session", "async_engine", "init_db", "close_db"]
 
 
@@ -89,7 +81,6 @@ async def init_db() -> None:
 
     settings = get_settings()
 
-    # Only auto-create tables in local/development environment
     if settings.environment.value == "local":
         logger.info("Initializing database tables (dev mode)")
         async with async_engine.begin() as conn:

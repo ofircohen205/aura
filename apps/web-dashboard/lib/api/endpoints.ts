@@ -1,26 +1,11 @@
-/**
- * Centralized API endpoint definitions for the application.
- * Use these constants instead of hardcoding endpoint paths throughout the codebase.
- *
- * Design Principles:
- * - Compose endpoints from base paths to avoid duplication
- * - Use functions for dynamic endpoints with proper typing
- * - Export types for better IDE support and type safety
- */
-
-// Base API paths - single source of truth for API prefixes
 const BASE_API = "/api/v1" as const;
 
-// Helper function to compose API endpoints
 function composeEndpoint(base: string, ...segments: string[]): string {
   const path = [base, ...segments].join("/");
-  // Normalize double slashes and trailing slashes
   return path.replace(/\/\/+/g, "/").replace(/\/$/, "") || base;
 }
 
-// Static endpoint definitions
 export const ENDPOINTS = {
-  // Authentication endpoints
   AUTH: {
     BASE: composeEndpoint(BASE_API, "auth"),
     REGISTER: composeEndpoint(BASE_API, "auth", "register"),
@@ -48,9 +33,6 @@ export const ENDPOINTS = {
   },
 } as const;
 
-/**
- * Type exports for better IDE support and type safety
- */
 export type EndpointPath = (typeof ENDPOINTS)[keyof typeof ENDPOINTS] extends string
   ? (typeof ENDPOINTS)[keyof typeof ENDPOINTS]
   : (typeof ENDPOINTS)[keyof typeof ENDPOINTS] extends (id: string) => string

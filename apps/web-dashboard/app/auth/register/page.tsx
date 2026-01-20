@@ -13,15 +13,18 @@ function RegisterPageContent() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      // Redirect to callback URL or dashboard
       const callbackUrl = searchParams.get("callbackUrl");
       const redirectUrl =
         callbackUrl && isSafeCallbackUrl(callbackUrl) ? callbackUrl : ROUTES.DASHBOARD.ROOT;
-      router.push(redirectUrl);
+
+      const timeoutId = setTimeout(() => {
+        router.replace(redirectUrl);
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [isAuthenticated, isLoading, router, searchParams]);
 
-  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -36,9 +39,18 @@ function RegisterPageContent() {
     );
   }
 
-  // Don't render register form if already authenticated (redirect will happen)
   if (isAuthenticated) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="text-center">
+          <div
+            className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"
+            aria-hidden="true"
+          ></div>
+          <p className="text-muted-foreground">Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

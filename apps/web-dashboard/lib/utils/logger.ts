@@ -1,8 +1,3 @@
-/**
- * Logger utility for consistent error logging across the application.
- * In development, logs to console. In production, can be extended to send to logging service.
- */
-
 type LogLevel = "error" | "warn" | "info" | "debug";
 
 interface LogContext {
@@ -14,7 +9,7 @@ class Logger {
 
   private log(level: LogLevel, message: string, error?: unknown, context?: LogContext) {
     if (!this.isDevelopment && level === "debug") {
-      return; // Skip debug logs in production
+      return;
     }
 
     const timestamp = new Date().toISOString();
@@ -36,8 +31,6 @@ class Logger {
     switch (level) {
       case "error":
         console.error(`[${timestamp}] ERROR:`, message, error || "", context || "");
-        // Note: In production, integrate with logging service (Sentry, LogRocket, etc.)
-        // This should be configured via environment variables
         break;
       case "warn":
         console.warn(`[${timestamp}] WARN:`, message, context || "");

@@ -20,11 +20,15 @@ from api.v1.auth.schemas import (
     UserResponse,
     UserUpdate,
 )
+from core.exceptions import (
+    BaseApplicationException,
+    application_exception_handler,
+    generic_exception_handler,
+)
 from db.database import AsyncSession, SessionDep
 from db.models.user import User
 from services.auth.service import auth_service
 
-# Import metrics (optional, fails gracefully if prometheus_client not installed)
 try:
     from core.metrics import (
         auth_failures_total,
@@ -36,7 +40,6 @@ try:
 
     METRICS_ENABLED = True
 except ImportError:
-    # Metrics not available
     METRICS_ENABLED = False
     auth_requests_total = None
     auth_token_refreshes_total = None
@@ -148,19 +151,16 @@ async def login(
     Validates user credentials and returns JWT access token and refresh token.
     """
     try:
-        # Authenticate user
         user = await auth_service.authenticate_user(
             session=session,
             email=credentials.email,
             password=credentials.password,
         )
 
-        # Create access token
         access_token = await auth_service.create_access_token(user)
         if METRICS_ENABLED:
             tokens_issued_total.labels(token_type="access").inc()
 
-        # Create refresh token
         refresh_token = await auth_service.create_refresh_token_record(user=user)
         if METRICS_ENABLED:
             tokens_issued_total.labels(token_type="refresh").inc()
@@ -176,7 +176,6 @@ async def login(
     except Exception as e:
         if METRICS_ENABLED:
             auth_requests_total.labels(endpoint="login", status="failure").inc()
-            # Track specific failure reasons
             error_type = type(e).__name__
             if "InvalidCredentialsError" in error_type:
                 auth_failures_total.labels(reason="invalid_credentials").inc()
@@ -352,17 +351,14 @@ async def list_users(
 
         raise ForbiddenError("Admin role required to list users")
 
-    # Get users with pagination
     users: list[User] = await user_dao.get_all(
         session=session,
         limit=pagination.limit,
         offset=pagination.offset,
     )
 
-    # Get total count
     total = await user_dao.count(session)
 
-    # Convert to response models
     user_responses = [UserResponse.model_validate(user) for user in users]
 
     return PaginatedResponse.create(
@@ -397,11 +393,9 @@ async def bulk_create_users(
     """
     from core.exceptions import ForbiddenError
 
-    # Check admin role
     if "admin" not in current_user.roles:
         raise ForbiddenError("Admin role required for bulk operations")
 
-    # Convert to service format
     users_data = [
         {"email": user.email, "username": user.username, "password": user.password}
         for user in bulk_data.users
@@ -443,7 +437,6 @@ async def bulk_update_users(
     """
     from core.exceptions import ForbiddenError
 
-    # Check admin role
     if "admin" not in current_user.roles:
         raise ForbiddenError("Admin role required for bulk operations")
 
@@ -483,7 +476,6 @@ async def bulk_delete_users(
     """
     from core.exceptions import ForbiddenError
 
-    # Check admin role
     if "admin" not in current_user.roles:
         raise ForbiddenError("Admin role required for bulk operations")
 
@@ -502,6 +494,8 @@ async def bulk_delete_users(
 def create_auth_app() -> FastAPI:
     """Create and configure the authentication service FastAPI sub-application."""
     app = FastAPI(title="Authentication API")
+    app.add_exception_handler(BaseApplicationException, application_exception_handler)
+    app.add_exception_handler(Exception, generic_exception_handler)
     register_exception_handlers(app)
     app.include_router(router)
     return app

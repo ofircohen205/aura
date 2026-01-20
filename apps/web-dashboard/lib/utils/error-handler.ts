@@ -1,7 +1,3 @@
-/**
- * Error handling utilities for consistent error message extraction and display.
- */
-
 import { AxiosError } from "axios";
 
 export interface ApiError {
@@ -10,41 +6,39 @@ export interface ApiError {
   details?: unknown;
 }
 
-/**
- * Extracts a user-friendly error message from various error types.
- */
+function extractMessageFromResponseData(data: unknown): string | null {
+  if (typeof data === "string") {
+    return data;
+  }
+
+  if (typeof data === "object" && data !== null) {
+    if ("message" in data && typeof data.message === "string") {
+      return data.message;
+    }
+    if ("detail" in data && typeof data.detail === "string") {
+      return data.detail;
+    }
+    if ("error" in data && typeof data.error === "string") {
+      return data.error;
+    }
+  }
+
+  return null;
+}
+
 export function extractErrorMessage(error: unknown): string {
-  // Axios errors
   if (error instanceof AxiosError) {
-    // Try to get error message from response
     if (error.response?.data) {
-      const data = error.response.data;
-
-      // Handle different response formats
-      if (typeof data === "string") {
-        return data;
-      }
-
-      if (typeof data === "object") {
-        // Check common error message fields
-        if ("message" in data && typeof data.message === "string") {
-          return data.message;
-        }
-        if ("detail" in data && typeof data.detail === "string") {
-          return data.detail;
-        }
-        if ("error" in data && typeof data.error === "string") {
-          return data.error;
-        }
+      const message = extractMessageFromResponseData(error.response.data);
+      if (message) {
+        return message;
       }
     }
 
-    // Fallback to HTTP status message
     if (error.response?.status) {
       return getHttpErrorMessage(error.response.status);
     }
 
-    // Network error
     if (error.code === "ECONNABORTED") {
       return "Request timeout. Please try again.";
     }
@@ -54,23 +48,17 @@ export function extractErrorMessage(error: unknown): string {
     }
   }
 
-  // Standard Error objects
   if (error instanceof Error) {
     return error.message;
   }
 
-  // String errors
   if (typeof error === "string") {
     return error;
   }
 
-  // Unknown error type
   return "An unexpected error occurred. Please try again.";
 }
 
-/**
- * Gets a user-friendly message for HTTP status codes.
- */
 function getHttpErrorMessage(statusCode: number): string {
   const messages: Record<number, string> = {
     400: "Invalid request. Please check your input.",
@@ -88,9 +76,6 @@ function getHttpErrorMessage(statusCode: number): string {
   return messages[statusCode] || `Error ${statusCode}. Please try again.`;
 }
 
-/**
- * Creates an ApiError object from an unknown error.
- */
 export function createApiError(error: unknown): ApiError {
   const message = extractErrorMessage(error);
 

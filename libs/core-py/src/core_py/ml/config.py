@@ -35,7 +35,10 @@ VECTOR_STORE_TYPE: Literal["pgvector", "faiss"] = cast(
 # pgvector Configuration (PostgreSQL extension)
 PGVECTOR_CONNECTION_STRING = os.getenv(
     "PGVECTOR_CONNECTION_STRING",
-    os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/aura"),
+    os.getenv(
+        "POSTGRES_DB_URI",
+        os.getenv("DATABASE_URL", "postgresql://aura:aura@localhost:5432/aura_db"),
+    ),
 )
 PGVECTOR_COLLECTION = os.getenv("PGVECTOR_COLLECTION", "aura_knowledge_base")
 PGVECTOR_TABLE_NAME = os.getenv("PGVECTOR_TABLE_NAME", "embeddings")

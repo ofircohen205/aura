@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,8 +48,6 @@ const registerSchema = z
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function RegisterForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { register: registerUser } = useAuth();
 
   const handleRegister = useCallback(
@@ -60,13 +57,8 @@ export function RegisterForm() {
         username: data.username,
         password: data.password,
       });
-      // Redirect to callback URL or dashboard
-      const callbackUrl = searchParams.get("callbackUrl");
-      const redirectUrl =
-        callbackUrl && isSafeCallbackUrl(callbackUrl) ? callbackUrl : ROUTES.DASHBOARD.ROOT;
-      router.push(redirectUrl);
     },
-    [registerUser, router, searchParams]
+    [registerUser]
   );
 
   const { submit, isLoading, error: submitError } = useFormSubmission(handleRegister);
@@ -87,10 +79,7 @@ export function RegisterForm() {
           username: data.username,
           password: data.password,
         });
-      } catch (error) {
-        // Error is already handled by useFormSubmission hook
-        // This catch prevents unhandled promise rejection
-      }
+      } catch (error) {}
     },
     [submit]
   );

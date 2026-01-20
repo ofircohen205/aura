@@ -12,7 +12,6 @@ export function DashboardHeader() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Memoize page title to avoid recalculation
   const pageTitle = useMemo(() => getPageTitle(pathname), [pathname]);
 
   const openMobileMenu = useCallback(() => {

@@ -27,7 +27,6 @@ export default function AuditsPage() {
   const [showTriggerForm, setShowTriggerForm] = useState(false);
   const [repoPath, setRepoPath] = useState("");
 
-  // Fetch audits on component mount
   useEffect(() => {
     let isCancelled = false;
 
@@ -37,13 +36,11 @@ export default function AuditsPage() {
         setError(null);
         const response = await auditsApi.list();
 
-        // Don't update state if component unmounted
         if (isCancelled) return;
 
-        // Transform API response to ensure required fields are present
         const transformedAudits = response.items.map((audit, index) => ({
           ...audit,
-          id: audit.id || `audit-${Date.now()}-${index}`,
+          id: audit.id || `audit-${index}-${audit.created_at || ""}`,
           created_at: audit.created_at || new Date().toISOString(),
           violations: audit.violations || [],
         }));
@@ -62,7 +59,6 @@ export default function AuditsPage() {
 
     fetchAudits();
 
-    // Cleanup function to prevent state updates after unmount
     return () => {
       isCancelled = true;
     };
@@ -81,7 +77,7 @@ export default function AuditsPage() {
         ...prev,
         {
           ...result,
-          id: result.id || `audit-${Date.now()}`,
+          id: result.id || `audit-${result.created_at || new Date().toISOString()}`,
           created_at: result.created_at || new Date().toISOString(),
           violations: result.violations || [],
         },
@@ -90,7 +86,6 @@ export default function AuditsPage() {
       setRepoPath("");
       setSuccess("Audit triggered successfully");
 
-      // Auto-dismiss success message after 5 seconds
       setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
       const errorMessage = extractErrorMessage(err);

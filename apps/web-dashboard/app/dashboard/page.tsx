@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,13 @@ import { format } from "date-fns";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [formattedDate, setFormattedDate] = useState<string>("");
+
+  useEffect(() => {
+    if (user?.created_at) {
+      setFormattedDate(format(new Date(user.created_at), "PP"));
+    }
+  }, [user?.created_at]);
 
   return (
     <div className="space-y-6">
@@ -86,7 +94,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">Member Since</label>
-              <p className="text-sm">{format(new Date(user.created_at), "PP")}</p>
+              <p className="text-sm">{formattedDate || "Loading..."}</p>
             </div>
             {user.roles && user.roles.length > 0 && (
               <div>

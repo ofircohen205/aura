@@ -14,7 +14,7 @@ from api.v1.workflows.schemas import (
 from core.exceptions import ValidationError
 from services.workflows.service import workflow_service
 
-router = APIRouter(prefix="/workflows", tags=["workflows"])
+router = APIRouter(tags=["workflows"])
 
 
 @router.post(

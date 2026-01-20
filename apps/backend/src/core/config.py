@@ -42,11 +42,9 @@ class Environment(str, Enum):
                     line = line.strip()
                     if line and not line.startswith("#") and "=" in line:
                         key, value = line.split("=", 1)
-                        # Remove quotes if present
                         value = value.strip().strip('"').strip("'")
                         env_vars[key.strip()] = value
         except Exception:
-            # If file read fails, return empty dict (env vars will use defaults)
             return {}
 
         return env_vars
@@ -63,7 +61,7 @@ def _get_default_cors_origins() -> list[str]:
 def _get_default_cors_credentials() -> bool:
     """Get default CORS credentials setting based on environment."""
     env = os.getenv("ENVIRONMENT", "local").lower()
-    return env == "local"  # Allow credentials in local dev for cookie-based auth
+    return env == "local"
 
 
 class Settings(BaseSettings):
@@ -75,15 +73,13 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Environment
     environment: Environment = Field(
         default=Environment.LOCAL,  # type: ignore[arg-type]
         description="Application environment",
     )
 
-    # Database Configuration
     postgres_db_uri: str = Field(
-        default="postgresql+psycopg://aura:aura@localhost:5432/aura_db",  # Dev default only - DO NOT USE IN PRODUCTION
+        default="postgresql+psycopg://aura:aura@localhost:5432/aura_db",
         description="PostgreSQL database URI for LangGraph checkpointer. Must be set via environment variable in production.",
     )
     postgres_pool_max_size: int = Field(
@@ -99,13 +95,12 @@ class Settings(BaseSettings):
         description="Minimum connection pool size",
     )
 
-    # CORS Configuration
     cors_allow_origins: list[str] = Field(
-        default_factory=_get_default_cors_origins,  # Allow localhost:3000 in local dev, empty in other environments
+        default_factory=_get_default_cors_origins,
         description="Allowed CORS origins",
     )
     cors_allow_credentials: bool = Field(
-        default_factory=_get_default_cors_credentials,  # Allow credentials in local dev for cookie-based auth
+        default_factory=_get_default_cors_credentials,
         description="Allow credentials in CORS requests",
     )
     cors_allow_methods: list[str] = Field(
@@ -117,7 +112,6 @@ class Settings(BaseSettings):
         description="Allowed headers for CORS",
     )
 
-    # API Configuration
     api_title: str = Field(
         default="Aura Backend",
         description="API title for OpenAPI documentation",
@@ -127,7 +121,6 @@ class Settings(BaseSettings):
         description="API version",
     )
 
-    # Logging Configuration
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO",
         description="Logging level",
@@ -137,7 +130,6 @@ class Settings(BaseSettings):
         description="Log format (json for production, text for local)",
     )
 
-    # JWT Configuration
     jwt_secret_key: str = Field(
         default="test-secret-key-for-jwt-tokens-minimum-32-chars-for-testing-only",
         description="Secret key for JWT signing. Must be set via environment variable in production.",
@@ -157,13 +149,11 @@ class Settings(BaseSettings):
         description="Refresh token expiration time in days",
     )
 
-    # CSRF Protection Configuration
     csrf_protection_enabled: bool = Field(
         default=True,
         description="Enable CSRF protection middleware",
     )
 
-    # Rate Limiting Configuration
     rate_limit_enabled: bool = Field(
         default=True,
         description="Enable rate limiting middleware",
@@ -243,9 +233,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_cors_origins(cls, v: list[str]) -> list[str]:
         """Validate CORS origins configuration."""
-        # Check if wildcard is used in non-local environments
         if "*" in v:
-            # In local environment, allow wildcard but warn
             env = os.getenv("ENVIRONMENT", "local")
             if env != "local":
                 raise ValueError("Cannot use '*' origin in non-local environments")
@@ -272,15 +260,12 @@ def get_settings() -> Settings:
     Returns:
         Settings: Application configuration instance
     """
-    # Determine environment from ENVIRONMENT or ENV variable
     env_str = os.getenv("ENVIRONMENT") or os.getenv("ENV", "local") or "local"
     try:
         env = Environment(env_str.lower())
     except ValueError:
-        # Default to LOCAL if invalid environment
         env = Environment.LOCAL
 
-    # Load env vars from file if it exists (Pydantic will merge with env vars)
     env_file: str | None = env.get_env_file()
     env_file = env_file if env_file and os.path.exists(env_file) else None
 
@@ -290,5 +275,4 @@ def get_settings() -> Settings:
     )
 
 
-# Global settings instance
 settings = get_settings()

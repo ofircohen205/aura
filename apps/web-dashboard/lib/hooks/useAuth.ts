@@ -6,7 +6,6 @@ import { authApi } from "@/lib/api/auth";
 import { logger } from "@/lib/utils/logger";
 import type { User, UserLogin, UserRegister } from "@/types/api";
 
-// Token storage utilities
 const TOKEN_KEYS = {
   ACCESS: "access_token",
   REFRESH: "refresh_token",
@@ -77,7 +76,6 @@ export const useAuthStore = create<AuthState>(set => ({
         await authApi.logout(refreshToken);
       }
     } catch (error) {
-      // Continue with logout even if API call fails
       logger.error("Logout API call failed", error);
     } finally {
       removeTokens();
@@ -86,12 +84,25 @@ export const useAuthStore = create<AuthState>(set => ({
   },
 
   fetchUser: async () => {
+    set({ isLoading: true });
     try {
       const user = await authApi.getCurrentUser();
       set({ user, isAuthenticated: true, isLoading: false });
-    } catch (error) {
-      removeTokens();
-      set({ user: null, isAuthenticated: false, isLoading: false });
+      logger.info("User fetched successfully", { userId: user.id });
+    } catch (error: any) {
+      logger.error("Failed to fetch user", error, {
+        status: error?.response?.status,
+        message: error?.message,
+      });
+      const isUnauthorized = error?.response?.status === 401;
+      if (isUnauthorized) {
+        logger.warn("Token invalid (401), clearing auth state");
+        removeTokens();
+        set({ user: null, isAuthenticated: false, isLoading: false });
+      } else {
+        logger.warn("API error but keeping token", { status: error?.response?.status });
+        set({ isLoading: false });
+      }
     }
   },
 
@@ -100,41 +111,73 @@ export const useAuthStore = create<AuthState>(set => ({
   },
 }));
 
+function initializeAuthState() {
+  const token = getToken("ACCESS");
+  const currentState = useAuthStore.getState();
+  const { user: currentUser, isAuthenticated: currentIsAuthenticated } = currentState;
+
+  const hasTokenAndUser = token && currentUser && currentIsAuthenticated;
+  if (hasTokenAndUser) {
+    useAuthStore.setState({ isLoading: false });
+    return;
+  }
+
+  const hasTokenButNotAuthenticated = token && currentUser && !currentIsAuthenticated;
+  if (hasTokenButNotAuthenticated) {
+    useAuthStore.setState({ isAuthenticated: true, isLoading: false });
+    return;
+  }
+
+  const hasTokenButNoUser = token && !currentUser;
+  if (hasTokenButNoUser) {
+    useAuthStore
+      .getState()
+      .fetchUser()
+      .catch(() => {});
+    return;
+  }
+
+  const hasNoTokenButHasUser = !token && currentUser;
+  if (hasNoTokenButHasUser) {
+    useAuthStore.getState().setUser(null);
+    useAuthStore.setState({ isLoading: false });
+    return;
+  }
+
+  if (!token && !currentUser) {
+    useAuthStore.setState({ isLoading: false });
+  }
+}
+
 export function useAuth() {
   const store = useAuthStore();
   const { user, isLoading, fetchUser, setUser } = store;
-  const hasInitialized = useRef(false);
+  const hasInitializedOnMount = useRef(false);
 
   useEffect(() => {
-    // Only run once on mount to avoid infinite loops
-    if (hasInitialized.current) return;
-
-    const token = getToken("ACCESS");
-    if (token && !user && !isLoading) {
-      hasInitialized.current = true;
-      fetchUser();
-    } else if (!token && user) {
-      hasInitialized.current = true;
-      setUser(null);
-    } else if (!token && !user && isLoading) {
-      hasInitialized.current = true;
-      useAuthStore.setState({ isLoading: false });
-    }
+    if (hasInitializedOnMount.current) return;
+    hasInitializedOnMount.current = true;
+    initializeAuthState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - only run on mount
+  }, []);
 
-  // Listen for storage changes (e.g., logout in another tab)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === TOKEN_KEYS.ACCESS || e.key === TOKEN_KEYS.REFRESH) {
-        const token = getToken("ACCESS");
-        if (!token && user) {
-          setUser(null);
-        } else if (token && !user && !isLoading) {
-          fetchUser();
-        }
+      const isTokenChange = e.key === TOKEN_KEYS.ACCESS || e.key === TOKEN_KEYS.REFRESH;
+      if (!isTokenChange) return;
+
+      const token = getToken("ACCESS");
+      const shouldClearUser = !token && user;
+      if (shouldClearUser) {
+        setUser(null);
+        return;
+      }
+
+      const shouldFetchUser = token && !user && !isLoading;
+      if (shouldFetchUser) {
+        fetchUser();
       }
     };
 

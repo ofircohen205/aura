@@ -74,6 +74,10 @@ API_VERSION=0.1.0
 # Logging Configuration
 LOG_LEVEL=INFO
 LOG_FORMAT=text
+
+# Web Dashboard Configuration
+# Required: API URL for the frontend to connect to the backend
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 For production, use `.env.production` or set environment variables directly. The configuration system supports:
@@ -112,7 +116,10 @@ This will start:
 - **Backend API** on `http://localhost:8000`
 - **Web Dashboard** on `http://localhost:3000`
 - **PostgreSQL** on `localhost:5432` (default credentials for local dev only)
+- **Redis** on `localhost:6379` (for caching and rate limiting)
 - **Dev Tools Container** for running commands
+
+**Note**: The database initialization scripts automatically create both `aura_db` (main database) and `aura` (default database matching username) to prevent connection errors.
 
 ### Access Services
 
@@ -198,14 +205,17 @@ just docker-exec "command here"
 1. **backend** - FastAPI backend service (Port: 8000, Hot reload enabled)
 2. **web-dashboard** - Next.js web application (Port: 3000, Hot reload enabled)
 3. **postgres** - PostgreSQL database (Port: 5432, Persistent data volume)
-4. **flyway** - Database migrations (Runs on startup)
-5. **dev-tools** - Development tools container (Contains all dev tools)
+4. **redis** - Redis cache service (Port: 6379, for authentication tokens and rate limiting)
+5. **flyway** - Database migrations (Runs on startup)
+6. **db-init** - Database initialization (Ensures databases exist)
+7. **dev-tools** - Development tools container (Contains all dev tools)
 
 **Volumes:**
 
 - `postgres_data` - PostgreSQL data persistence
+- `redis_data` - Redis data persistence (for cache and rate limiting)
 - `backend-venv` - Python virtual environment (shared)
-- `web-node-modules` - Node.js dependencies (shared)
+- Anonymous volumes for `node_modules` - Node.js dependencies (isolated per container, prevents host directory conflicts)
 
 ### File Editing
 
@@ -735,6 +745,21 @@ docker-compose -f docker/docker-compose.dev.yml build --no-cache
 just dev-clean
 just dev
 ```
+
+### Web Dashboard Environment Variable Error
+
+If you see an error about missing `NEXT_PUBLIC_API_URL`:
+
+```bash
+# The environment variable is set in docker-compose.dev.yml
+# Restart the web-dashboard container to pick it up:
+docker-compose -f docker/docker-compose.dev.yml restart web-dashboard
+
+# Or rebuild if needed:
+docker-compose -f docker/docker-compose.dev.yml up -d --build web-dashboard
+```
+
+The default value is `http://localhost:8000` which points to the backend API. You can override it by setting the `NEXT_PUBLIC_API_URL` environment variable in your shell before running docker-compose.
 
 ### Tests Failing
 

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuth, useAuthStore } from "@/lib/hooks/useAuth";
 import { ROUTES } from "@/lib/routes";
 
 export default function Home() {
@@ -12,14 +12,26 @@ export default function Home() {
   useEffect(() => {
     if (!isLoading) {
       if (isAuthenticated) {
-        router.push(ROUTES.DASHBOARD.ROOT);
+        router.replace(ROUTES.DASHBOARD.ROOT);
       } else {
-        router.push(ROUTES.AUTH.LOGIN);
+        const hasToken = typeof window !== "undefined" && localStorage.getItem("access_token");
+        if (hasToken) {
+          const timeoutId = setTimeout(() => {
+            const authState = useAuthStore.getState();
+            if (authState.isAuthenticated) {
+              router.replace(ROUTES.DASHBOARD.ROOT);
+            } else {
+              router.replace(ROUTES.AUTH.LOGIN);
+            }
+          }, 100);
+          return () => clearTimeout(timeoutId);
+        } else {
+          router.replace(ROUTES.AUTH.LOGIN);
+        }
       }
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Show loading state while checking authentication
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
       <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">

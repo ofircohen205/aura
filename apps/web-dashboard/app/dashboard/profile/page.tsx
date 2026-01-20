@@ -46,7 +46,6 @@ export default function ProfilePage() {
         setSuccess("Profile updated successfully");
         setIsEditing(false);
 
-        // Auto-dismiss success message after 5 seconds
         setTimeout(() => setSuccess(null), 5000);
       } catch (err) {
         setError(extractErrorMessage(err));

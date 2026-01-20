@@ -16,16 +16,13 @@ export function UserMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  // Memoize close handler
   const closeMenu = useCallback(() => {
     setIsOpen(false);
-    // Return focus to trigger button for accessibility
     setTimeout(() => {
       triggerRef.current?.focus();
     }, 0);
   }, []);
 
-  // Close menu when clicking outside
   useEffect(() => {
     if (!isOpen) return;
 
@@ -41,7 +38,6 @@ export function UserMenu() {
     };
   }, [isOpen, closeMenu]);
 
-  // Close menu on Escape key
   useEffect(() => {
     if (!isOpen) return;
 
@@ -63,7 +59,6 @@ export function UserMenu() {
     router.push(ROUTES.AUTH.LOGIN);
   }, [closeMenu, logout, router]);
 
-  // Memoize user initials
   const userInitials = useMemo(() => {
     return user ? getInitials(user.username) : "";
   }, [user?.username]);

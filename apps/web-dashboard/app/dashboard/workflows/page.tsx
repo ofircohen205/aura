@@ -33,7 +33,6 @@ export default function WorkflowsPage() {
     violations: [],
   });
 
-  // Fetch workflows on component mount
   useEffect(() => {
     let isCancelled = false;
 
@@ -43,10 +42,8 @@ export default function WorkflowsPage() {
         setError(null);
         const response = await workflowsApi.list();
 
-        // Don't update state if component unmounted
         if (isCancelled) return;
 
-        // API now returns created_at and type, no transformation needed
         const transformedWorkflows = response.items;
         setWorkflows(transformedWorkflows);
       } catch (err) {
@@ -63,7 +60,6 @@ export default function WorkflowsPage() {
 
     fetchWorkflows();
 
-    // Cleanup function to prevent state updates after unmount
     return () => {
       isCancelled = true;
     };
@@ -73,7 +69,6 @@ export default function WorkflowsPage() {
     setError(null);
     setSuccess(null);
 
-    // Create optimistic workflow
     const optimisticId = `temp-${Date.now()}`;
     const optimisticWorkflow: WorkflowResponse = {
       thread_id: optimisticId,
@@ -82,7 +77,6 @@ export default function WorkflowsPage() {
       type: "Struggle Detection",
     };
 
-    // Optimistically add to list
     setWorkflows(prev => [...prev, optimisticWorkflow]);
     setShowStruggleForm(false);
 
@@ -90,16 +84,13 @@ export default function WorkflowsPage() {
       setIsLoading(true);
       const result = await workflowsApi.triggerStruggle(struggleData);
 
-      // Replace optimistic with real result
       setWorkflows(prev => prev.map(w => (w.thread_id === optimisticId ? result : w)));
 
       setStruggleData({ edit_frequency: 0, error_logs: [], history: [] });
       setSuccess("Struggle detection workflow triggered successfully");
 
-      // Auto-dismiss success message after 5 seconds
       setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
-      // Remove optimistic workflow on error
       setWorkflows(prev => prev.filter(w => w.thread_id !== optimisticId));
       const errorMessage = extractErrorMessage(err);
       setError(errorMessage);
@@ -114,7 +105,6 @@ export default function WorkflowsPage() {
     setError(null);
     setSuccess(null);
 
-    // Create optimistic workflow
     const optimisticId = `temp-${Date.now()}`;
     const optimisticWorkflow: WorkflowResponse = {
       thread_id: optimisticId,
@@ -123,7 +113,6 @@ export default function WorkflowsPage() {
       type: "Code Audit",
     };
 
-    // Optimistically add to list
     setWorkflows(prev => [...prev, optimisticWorkflow]);
     setShowAuditForm(false);
 
@@ -131,16 +120,13 @@ export default function WorkflowsPage() {
       setIsLoading(true);
       const result = await workflowsApi.triggerAudit(auditData);
 
-      // Replace optimistic with real result
       setWorkflows(prev => prev.map(w => (w.thread_id === optimisticId ? result : w)));
 
       setAuditData({ diff_content: "", violations: [] });
       setSuccess("Code audit workflow triggered successfully");
 
-      // Auto-dismiss success message after 5 seconds
       setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
-      // Remove optimistic workflow on error
       setWorkflows(prev => prev.filter(w => w.thread_id !== optimisticId));
       const errorMessage = extractErrorMessage(err);
       setError(errorMessage);

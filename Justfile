@@ -28,53 +28,53 @@ dev:
     docker system prune -f; \
     docker image prune -f; \
     docker volume prune -f; \
-    docker compose -f docker/docker-compose.dev.yml up --build
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev up --build
 
 # Rebuild all development services
 dev-rebuild:
     docker system prune -f; \
     docker image prune -f; \
     docker volume prune -f; \
-    docker compose -f docker/docker-compose.dev.yml up -d --build --force-recreate
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev up -d --build --force-recreate
 
 # Start development services in detached mode
 dev-detached:
     docker system prune -f; \
     docker image prune -f; \
     docker volume prune -f; \
-    docker compose -f docker/docker-compose.dev.yml up -d --build
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev up -d --build
 
 # Stop all development services
 dev-stop:
     docker system prune -f; \
     docker image prune -f; \
     docker volume prune -f; \
-    docker compose -f docker/docker-compose.dev.yml down
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev down
 
 # Stop and remove volumes (clean slate)
 dev-clean:
     docker system prune -f; \
     docker image prune -f; \
     docker volume prune -f; \
-    docker compose -f docker/docker-compose.dev.yml down -v
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev down -v
 
 # View logs from all services
 dev-logs:
-    docker compose -f docker/docker-compose.dev.yml logs -f
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev logs -f
 
 # View logs from specific service
 # Usage: just dev-logs-service backend
 dev-logs-service SERVICE:
-    docker compose -f docker/docker-compose.dev.yml logs -f {{SERVICE}}
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev logs -f {{SERVICE}}
 
 # Execute command in dev-tools container
 # Usage: just docker-exec "command"
 docker-exec COMMAND:
-    docker compose -f docker/docker-compose.dev.yml exec dev-tools {{COMMAND}}
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec dev-tools {{COMMAND}}
 
 # Get shell in dev-tools container
 docker-shell:
-    docker compose -f docker/docker-compose.dev.yml exec dev-tools /bin/bash
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec dev-tools /bin/bash
 
 # =============================================================================
 # Development Pipeline Commands
@@ -97,20 +97,20 @@ branch-linear ISSUE_ID DESCRIPTION:
 # Run all tests (Python + TypeScript) in Docker
 test:
     @echo "Running all tests in Docker..."
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
 
 # Run Python tests in Docker
 test-py:
     @echo "Running Python tests in Docker..."
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
 
 # Run TypeScript tests in Docker
 test-ts:
     @echo "Running TypeScript tests in Docker..."
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
 
 # Run all tests locally (unit tests only, excludes integration/e2e)
 test-local:
@@ -131,7 +131,7 @@ test-py-integration-docker:
     @echo "Running integration/e2e tests against Docker database..."
     @echo "Note: Requires Docker services to be running (use: just dev-detached)"
     @docker compose -f docker/docker-compose.dev.yml ps postgres | grep -q "Up" || (echo "Error: Docker services not running. Start with: just dev-detached" && exit 1)
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v -m 'integration or e2e'"
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v -m 'integration or e2e'"
 
 # Run all Python tests locally including integration/e2e (requires local database)
 test-py-local-all:

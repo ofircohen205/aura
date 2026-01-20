@@ -7,7 +7,6 @@ import { ENDPOINTS } from "./endpoints";
 
 const API_BASE_URL = getEnv("NEXT_PUBLIC_API_URL", "http://localhost:8000");
 
-// Token refresh queue to prevent race conditions
 interface QueuedRequest {
   resolve: (value: any) => void;
   reject: (error: any) => void;
@@ -31,24 +30,19 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor to add auth token and CSRF token
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         if (typeof window !== "undefined") {
-          // Add auth token
           const token = localStorage.getItem("access_token");
           if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
           }
 
-          // Add CSRF token for state-changing operations
           const csrfToken = this.getCsrfToken();
-          if (
-            csrfToken &&
-            config.headers &&
+          const isStateChangingMethod =
             config.method &&
-            ["post", "put", "patch", "delete"].includes(config.method.toLowerCase())
-          ) {
+            ["post", "put", "patch", "delete"].includes(config.method.toLowerCase());
+          if (csrfToken && config.headers && isStateChangingMethod) {
             config.headers["X-CSRF-Token"] = csrfToken;
           }
         }
@@ -59,14 +53,12 @@ class ApiClient {
       }
     );
 
-    // Response interceptor for error handling and token refresh
     this.client.interceptors.response.use(
       response => response,
       async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
         if (error.response?.status === 401 && !originalRequest._retry) {
-          // If already refreshing, queue this request
           if (this.isRefreshing) {
             try {
               const token = await this.waitForTokenRefresh();
@@ -88,7 +80,6 @@ class ApiClient {
               throw new Error("No refresh token available");
             }
 
-            // Use axios directly to avoid interceptor loop
             const response = await axios.post(
               `${API_BASE_URL}${ENDPOINTS.AUTH.REFRESH}`,
               { refresh_token: refreshToken },
@@ -101,17 +92,14 @@ class ApiClient {
               localStorage.setItem("refresh_token", newRefreshToken);
             }
 
-            // Process queued requests
             this.processQueue(access_token);
 
-            // Retry original request
             if (originalRequest.headers) {
               originalRequest.headers.Authorization = `Bearer ${access_token}`;
             }
 
             return await this.client(originalRequest);
           } catch (refreshError) {
-            // Refresh failed, reject all queued requests and redirect to login
             this.processQueue(null, refreshError);
             logger.error("Token refresh failed", refreshError, {
               endpoint: originalRequest.url,
@@ -152,7 +140,6 @@ class ApiClient {
 
   private getCsrfToken(): string | null {
     if (typeof document === "undefined") return null;
-    // CSRF token is set by backend in a cookie, accessible to JavaScript
     const cookies = document.cookie.split(";");
     for (const cookie of cookies) {
       const [name, value] = cookie.trim().split("=");

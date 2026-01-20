@@ -9,7 +9,6 @@ export function Breadcrumbs() {
   const pathname = usePathname();
   const breadcrumbs = generateBreadcrumbs(pathname);
 
-  // Don't show breadcrumbs on the main dashboard page
   if (breadcrumbs.length <= 1) {
     return null;
   }

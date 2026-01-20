@@ -2,25 +2,20 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files from monorepo root
+# Copy package files
 COPY package.json package-lock.json* ./
-COPY apps/web-dashboard/package.json apps/web-dashboard/
 
 # Install dependencies
-RUN npm install
+RUN npm ci --only=production=false || npm install
 
 # Copy source code
-COPY apps/web-dashboard ./apps/web-dashboard
+COPY . .
 
-# Set working directory to web-dashboard for Next.js
-WORKDIR /app/apps/web-dashboard
+# Add node_modules/.bin to PATH
+ENV PATH="/app/node_modules/.bin:${PATH}"
 
 # Expose port
 EXPOSE 3000
-
-# Set environment variables
-ENV NODE_ENV=development
-ENV NEXT_TELEMETRY_DISABLED=1
 
 # Default command (can be overridden in docker-compose)
 CMD ["npm", "run", "dev"]
