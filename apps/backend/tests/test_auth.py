@@ -117,10 +117,21 @@ class TestUserRegistration:
                 updated_at=datetime.now(UTC),
             )
 
-            with patch(
-                "services.auth.service.auth_service.register_user", new_callable=AsyncMock
-            ) as mock_register:
+            with (
+                patch(
+                    "services.auth.service.auth_service.register_user", new_callable=AsyncMock
+                ) as mock_register,
+                patch(
+                    "services.auth.service.auth_service.create_access_token", new_callable=AsyncMock
+                ) as mock_access,
+                patch(
+                    "services.auth.service.auth_service.create_refresh_token_record",
+                    new_callable=AsyncMock,
+                ) as mock_refresh,
+            ):
                 mock_register.return_value = mock_user
+                mock_access.return_value = "access_token_string"
+                mock_refresh.return_value = "refresh_token_string"
 
                 response = client.post(
                     "/api/v1/auth/register",
@@ -133,12 +144,11 @@ class TestUserRegistration:
                     cookies={"csrf-token": csrf_token},
                 )
 
-                assert response.status_code == 201
+                assert response.status_code == 201  # Register endpoint returns 201 Created
                 data = response.json()
-                assert data["email"] == TEST_EMAIL
-                assert data["username"] == TEST_USERNAME
-                assert "hashed_password" not in data
-                assert data["is_active"] is True
+                assert "access_token" in data
+                assert "refresh_token" in data
+                assert data["token_type"] == "bearer"
         finally:
             # Clean up dependency override
             app.dependency_overrides.clear()

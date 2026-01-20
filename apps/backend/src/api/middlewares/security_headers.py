@@ -41,15 +41,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Referrer Policy
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
-        # Content Security Policy (basic)
-        # Can be customized per environment
+        # Content Security Policy
+        # Allow Swagger UI resources (cdn.jsdelivr.net) for API documentation
+        # In production, consider disabling Swagger UI or using stricter policies
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "img-src 'self' data: https:; "
-            "font-src 'self' data:; "
-            "connect-src 'self'"
+            "font-src 'self' data: https://cdn.jsdelivr.net; "
+            "connect-src 'self' https://cdn.jsdelivr.net"
         )
 
         # Permissions Policy (formerly Feature Policy)

@@ -370,3 +370,25 @@ k8s-health-check ENV="dev" NAMESPACE="" TIMEOUT="30" RETRIES="5":
     else \
         bash k8s/scripts/health-check.sh {{ENV}} {{NAMESPACE}} {{TIMEOUT}} {{RETRIES}}; \
     fi
+
+# Skaffold: Start auto-updating development environment
+k8s-skaffold-dev:
+    @echo "Starting Skaffold for auto-updating Kubernetes development..."
+    @echo "This will watch for code changes and automatically rebuild/redeploy"
+    @skaffold dev --profile dev
+
+# Skaffold: Run once (build and deploy, then exit)
+k8s-skaffold-run:
+    @echo "Running Skaffold once (build and deploy)..."
+    @skaffold run --profile dev
+
+# Skaffold: Watch for changes and auto-update
+k8s-skaffold-watch:
+    @echo "Watching for changes with Skaffold..."
+    @skaffold dev --profile dev --watch-poll
+
+# Watch for code changes and auto-rebuild/redeploy (alternative to Skaffold)
+k8s-watch ENV="dev" SERVICE="all":
+    @echo "Watching for code changes and auto-updating Kubernetes..."
+    @echo "Environment: {{ENV}}, Service: {{SERVICE}}"
+    @bash k8s/scripts/watch-and-redeploy.sh {{ENV}} {{SERVICE}}

@@ -1,0 +1,18 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD .",
+  "functions": {
+    "app/**/*.ts": {
+      "runtime": "nodejs20.x"
+    },
+    "app/**/*.tsx": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "crons": [],
+  "rewrites": [],
+  "headers": []
+}

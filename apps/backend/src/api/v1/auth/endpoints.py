@@ -49,24 +49,19 @@ router = APIRouter(tags=["auth"])
 
 @router.post(
     "/register",
-    response_model=UserResponse,
+    response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
-    description="Create a new user account with email, username, and password.",
+    description="Create a new user account with email, username, and password. Returns access and refresh tokens.",
     responses={
         201: {
             "description": "User registered successfully",
             "content": {
                 "application/json": {
                     "example": {
-                        "id": "123e4567-e89b-12d3-a456-426614174000",
-                        "email": "user@example.com",
-                        "username": "johndoe",
-                        "is_active": True,
-                        "is_verified": False,
-                        "roles": ["user"],
-                        "created_at": "2024-01-01T00:00:00Z",
-                        "updated_at": "2024-01-01T00:00:00Z",
+                        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "refresh_token": "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...",
+                        "token_type": "bearer",
                     }
                 }
             },
@@ -78,12 +73,13 @@ router = APIRouter(tags=["auth"])
 async def register(
     user_data: UserRegister,
     session: Annotated[AsyncSession, SessionDep],
-) -> UserResponse:
+) -> TokenResponse:
     """
     Register a new user.
 
     Creates a new user account with the provided email, username, and password.
     The password is hashed using bcrypt before storage.
+    Returns access and refresh tokens for immediate authentication.
     """
     try:
         user = await auth_service.register_user(
@@ -92,22 +88,31 @@ async def register(
             username=user_data.username,
             password=user_data.password,
         )
+
+        # Create access token
+        access_token = await auth_service.create_access_token(user)
+        if METRICS_ENABLED:
+            tokens_issued_total.labels(token_type="access").inc()
+
+        # Create refresh token
+        refresh_token = await auth_service.create_refresh_token_record(user=user)
+        if METRICS_ENABLED:
+            tokens_issued_total.labels(token_type="refresh").inc()
+
         if METRICS_ENABLED:
             user_registrations_total.labels(status="success").inc()
             auth_requests_total.labels(endpoint="register", status="success").inc()
+
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+        )
     except Exception:
         if METRICS_ENABLED:
             user_registrations_total.labels(status="failure").inc()
             auth_requests_total.labels(endpoint="register", status="failure").inc()
         raise
-
-    user_response = UserResponse.model_validate(user)
-    # Add HATEOAS links
-    user_response.links = {
-        "self": "/api/v1/auth/me",
-        "update": "/api/v1/auth/me",
-    }
-    return user_response
 
 
 @router.post(

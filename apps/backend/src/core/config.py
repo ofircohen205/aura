@@ -52,6 +52,20 @@ class Environment(str, Enum):
         return env_vars
 
 
+def _get_default_cors_origins() -> list[str]:
+    """Get default CORS origins based on environment."""
+    env = os.getenv("ENVIRONMENT", "local").lower()
+    if env == "local":
+        return ["http://localhost:3000"]
+    return []
+
+
+def _get_default_cors_credentials() -> bool:
+    """Get default CORS credentials setting based on environment."""
+    env = os.getenv("ENVIRONMENT", "local").lower()
+    return env == "local"  # Allow credentials in local dev for cookie-based auth
+
+
 class Settings(BaseSettings):
     """Application settings with environment-based configuration."""
 
@@ -87,11 +101,11 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     cors_allow_origins: list[str] = Field(
-        default_factory=list,  # Empty by default - secure
+        default_factory=_get_default_cors_origins,  # Allow localhost:3000 in local dev, empty in other environments
         description="Allowed CORS origins",
     )
     cors_allow_credentials: bool = Field(
-        default=False,  # Secure by default
+        default_factory=_get_default_cors_credentials,  # Allow credentials in local dev for cookie-based auth
         description="Allow credentials in CORS requests",
     )
     cors_allow_methods: list[str] = Field(

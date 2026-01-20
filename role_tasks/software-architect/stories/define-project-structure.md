@@ -13,7 +13,7 @@ Establish a **Polyglot Monorepo** structure that maximizes code reuse between co
 
 ### Architecture Strategy
 
-Refer to `docs/workflows/project-architecture.md` for detailed internal structure of Backend, Frontend, CLI, and VSCode Extension.
+Refer to `docs/ARCHITECTURE.md` for detailed internal structure of Backend, Frontend, CLI, and VSCode Extension.
 
 - **Python Stack**: Use `uv` for extremely fast dependency management and workspace support.
   - **Workspace Root**: `pyproject.toml` at the root.

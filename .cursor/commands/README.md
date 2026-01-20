@@ -24,7 +24,7 @@ Commit and push changes following the development pipeline conventions.
 - Validates commit message format: `<type>(<scope>): <description> [ISSUE-ID]`
 - Optionally runs CI checks before committing
 - Automatically stages, commits, and pushes changes
-- Follows development pipeline conventions from `docs/workflows/development-pipeline.md`
+- Follows development pipeline conventions from `docs/DEVELOPMENT.md`
 
 **Example:**
 

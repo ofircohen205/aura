@@ -2,10 +2,15 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, FastAPI, status
+from fastapi import APIRouter, Depends, FastAPI, status
 
+from api.v1.common.schemas import PaginatedResponse, PaginationParams
 from api.v1.workflows.exceptions import register_exception_handlers
-from api.v1.workflows.schemas import AuditInput, StruggleInput, WorkflowResponse
+from api.v1.workflows.schemas import (
+    AuditInput,
+    StruggleInput,
+    WorkflowResponse,
+)
 from core.exceptions import ValidationError
 from services.workflows.service import workflow_service
 
@@ -66,6 +71,35 @@ async def trigger_audit_workflow(inp: AuditInput) -> WorkflowResponse:
         violations=inp.violations,
     )
     return WorkflowResponse(**result)
+
+
+@router.get(
+    "/",
+    response_model=PaginatedResponse[WorkflowResponse],
+    summary="List workflows",
+    description="Get a paginated list of workflows. Currently returns empty list as workflow listing is not yet fully implemented.",
+    responses={
+        200: {"description": "Workflows retrieved successfully"},
+        503: {"description": "Database connection unavailable"},
+    },
+)
+async def list_workflows(
+    pagination: PaginationParams = Depends(),  # type: ignore[misc]
+) -> PaginatedResponse[WorkflowResponse]:
+    """
+    List all workflows with pagination.
+
+    NOTE: This is a placeholder implementation. Full workflow listing requires
+    database schema changes to track workflow metadata. Currently returns empty list.
+    """
+    # TODO: Implement full workflow listing from checkpointer or database
+    # For now, return empty paginated response
+    return PaginatedResponse.create(
+        items=[],
+        total=0,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.get(

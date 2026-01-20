@@ -6,6 +6,7 @@ Requires database to be running.
 """
 
 import uuid
+from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -13,8 +14,37 @@ from httpx import ASGITransport, AsyncClient
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
+@pytest.fixture(autouse=True)
+async def reset_redis_clients():
+    """
+    Reset Redis clients before each test to avoid event loop issues.
+
+    This ensures Redis clients are created fresh with the correct event loop
+    for each test, preventing "got Future attached to a different loop" errors.
+    """
+    # Clean up any existing Redis clients before the test
+    try:
+        from services.redis import close_redis_clients
+
+        await close_redis_clients()
+    except Exception:
+        # Don't fail if cleanup fails (e.g., no clients exist)
+        pass
+
+    yield
+
+    # Clean up after test as well
+    try:
+        from services.redis import close_redis_clients
+
+        await close_redis_clients()
+    except Exception:
+        # Don't fail if cleanup fails
+        pass
+
+
 @pytest.fixture
-async def clean_test_users(init_test_db):
+async def clean_test_users(init_test_db) -> AsyncGenerator[None]:
     """
     Clean up test users after each test.
 
@@ -29,22 +59,54 @@ async def clean_test_users(init_test_db):
 
     yield
 
+    # Clean up Redis clients first to avoid event loop issues
+    try:
+        from services.redis import close_redis_clients
+
+        await close_redis_clients()
+    except Exception:
+        # Don't fail the test if Redis cleanup fails
+        pass
+
     # Clean up after test only
     # Using unique user data means we don't need pre-test cleanup
-    async with AsyncSession(async_engine) as session:
-        try:
-            stmt = select(User).where(
-                (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
-            )
-            result = await session.execute(stmt)
-            users = result.scalars().all()
-            for user in users:
-                await session.delete(user)
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            # Don't fail the test if cleanup fails
+    # Wrap in try/except to handle event loop closure and other errors gracefully
+    try:
+        async with AsyncSession(async_engine) as session:
+            try:
+                stmt = select(User).where(
+                    (User.email == "test@example.com") | (User.email.like("test_%@example.com"))
+                )
+                result = await session.execute(stmt)
+                users = result.scalars().all()
+                for user in users:
+                    await session.delete(user)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                # Don't fail the test if cleanup fails
+                pass
+    except (RuntimeError, OSError) as e:
+        # Handle "Event loop is closed" and connection errors gracefully
+        error_msg = str(e).lower()
+        if any(
+            phrase in error_msg
+            for phrase in [
+                "event loop is closed",
+                "no running event loop",
+                "connection",
+                "closed",
+            ]
+        ):
+            # Event loop or connection is closed, cleanup cannot proceed
+            # This is acceptable for test cleanup
             pass
+        else:
+            # Re-raise other RuntimeErrors/OSErrors that we don't expect
+            raise
+    except Exception:
+        # Don't fail the test if cleanup fails for any other reason
+        pass
 
 
 @pytest.fixture
