@@ -341,6 +341,8 @@ author: Team
 Body text.
 ```
 
+The markdown loader automatically extracts YAML frontmatter metadata, which is particularly useful for educational lessons (see [Educational Lessons](#educational-lessons) section below).
+
 ### Python
 
 Extracts function and class names from AST:
@@ -358,6 +360,117 @@ Loads `.ts` and `.tsx` files with metadata.
 ### Generic Text
 
 Fallback for any text file.
+
+## Educational Lessons
+
+Aura includes a comprehensive set of 90 educational lessons covering Python, TypeScript, and Java programming languages. These lessons are designed to be ingested into the RAG vector database to support the struggle detection workflow's lesson generation capabilities.
+
+### Lesson Structure
+
+Lessons are located in `docs/lessons/` and organized by language and difficulty:
+
+```
+docs/lessons/
+├── python/
+│   ├── beginner/      (10 lessons)
+│   ├── intermediate/  (10 lessons)
+│   └── advanced/      (10 lessons)
+├── typescript/
+│   ├── beginner/      (10 lessons)
+│   ├── intermediate/  (10 lessons)
+│   └── advanced/      (10 lessons)
+└── java/
+    ├── beginner/      (10 lessons)
+    ├── intermediate/  (10 lessons)
+    └── advanced/      (10 lessons)
+```
+
+### Lesson Format
+
+Each lesson is a Markdown file with YAML frontmatter containing metadata:
+
+```markdown
+---
+title: "Variables and Data Types"
+language: python
+difficulty: beginner
+prerequisites: []
+keywords: [variables, data types, integers, floats, strings]
+---
+
+# Learning Objectives
+
+...
+```
+
+The frontmatter includes:
+
+- `title`: Lesson title
+- `language`: `python`, `typescript`, or `java`
+- `difficulty`: `beginner`, `intermediate`, or `advanced`
+- `prerequisites`: List of prerequisite lesson titles
+- `keywords`: List of relevant keywords for retrieval
+
+### Ingesting Lessons
+
+To ingest all educational lessons:
+
+```bash
+# Ingest all lessons
+aura rag ingest docs/lessons/
+
+# Ingest lessons for a specific language
+aura rag ingest docs/lessons/python/
+```
+
+Or using the Python API:
+
+```python
+from core_py.rag.service import RagService
+
+service = RagService(enabled=True)
+result = await service.ingest_directory("docs/lessons/")
+```
+
+### Lesson Retrieval
+
+The RAG service automatically retrieves relevant lessons based on:
+
+1. **Error patterns**: Matches error messages to lesson keywords
+2. **Language detection**: Filters lessons by programming language
+3. **Difficulty level**: Can match student's experience level (if available)
+4. **Query relevance**: Semantic similarity to lesson content
+
+Example:
+
+```python
+# Query for Python variable errors
+context = await service.query_knowledge(
+    "Help with variable errors",
+    error_patterns=["NameError: name 'x' is not defined"],
+    top_k=3
+)
+```
+
+The retrieved lesson content is then used by the struggle detection workflow to generate personalized lesson recommendations.
+
+### Integration with Struggle Detection
+
+The struggle detection workflow (`libs/core-py/src/core_py/workflows/struggle.py`) automatically uses lesson content when:
+
+- Error patterns match lesson keywords
+- Edit frequency indicates struggle
+- Language can be detected from context
+
+The workflow queries the RAG service and includes relevant lesson excerpts in the lesson generation prompt, enabling context-aware, personalized lesson recommendations.
+
+### Documentation
+
+For more details, see:
+
+- [Lesson README](lessons/README.md) - Lesson format and structure
+- [Lesson Index](lessons/INDEX.md) - Complete lesson catalog
+- [Ingestion Guide](lessons/INGESTION.md) - Detailed ingestion instructions
 
 ## Logging Guidelines
 

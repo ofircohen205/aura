@@ -520,7 +520,29 @@ Aura uses LangGraph workflows to orchestrate complex analysis tasks.
 3. Considers previous attempt history
 4. Uses thresholds to determine if struggling:
    - Edit frequency > threshold (default: configurable)
-   - Error count > threshold (default: configurable)
+5. Retrieves relevant educational lessons from the RAG knowledge base based on:
+   - Error patterns matching lesson keywords
+   - Programming language detection
+   - Difficulty level (if available)
+6. Generates personalized lesson recommendations using retrieved content
+
+**Educational Lessons:**
+
+Aura includes 90 comprehensive educational lessons covering Python, TypeScript, and Java, organized by difficulty level (beginner, intermediate, advanced). These lessons are automatically retrieved and used to generate context-aware recommendations when struggling is detected.
+
+The lessons cover fundamental programming concepts, common mistakes, and best practices. They are stored in `docs/lessons/` and can be ingested into the RAG vector database using:
+
+```bash
+aura rag ingest docs/lessons/
+```
+
+For more information about the educational lessons, see:
+
+- [Lesson Documentation](lessons/README.md)
+- [Lesson Index](lessons/INDEX.md)
+- [RAG Documentation](RAG.md#educational-lessons)
+  - Error count > threshold (default: configurable)
+
 5. If struggling detected, generates lesson recommendation using:
    - Error patterns
    - RAG (Retrieval-Augmented Generation) for relevant documentation
