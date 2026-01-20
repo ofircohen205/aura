@@ -42,21 +42,51 @@ jobs:
       - name: Configure kubectl
         run: |
           mkdir -p $HOME/.kube
+
+          # Check if secret is set
+          if [ -z "${{ secrets.KUBECONFIG_DEV }}" ]; then
+            echo "Error: KUBECONFIG_DEV secret is not set"
+            exit 1
+          fi
+
+          # Decode and write kubeconfig
           echo "${{ secrets.KUBECONFIG_DEV }}" | base64 -d > $HOME/.kube/config
-          # Verify kubeconfig is valid
+
+          # Verify kubeconfig file was created and has content
+          if [ ! -s "$HOME/.kube/config" ]; then
+            echo "Error: kubeconfig file is empty or was not created"
+            exit 1
+          fi
+
+          # Verify kubeconfig is valid YAML/JSON
           if ! kubectl config view &> /dev/null; then
-            echo "Error: Invalid kubeconfig"
+            echo "Error: Invalid kubeconfig format"
+            kubectl config view 2>&1 | head -20
             exit 1
           fi
+
+          # Get list of contexts
+          CONTEXTS=$(kubectl config get-contexts -o name 2>/dev/null || echo "")
+          if [ -z "$CONTEXTS" ]; then
+            echo "Error: No contexts found in kubeconfig"
+            echo "Kubeconfig contents:"
+            cat $HOME/.kube/config | head -20
+            exit 1
+          fi
+
           # Get current context or use the first available context
-          CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || kubectl config view -o jsonpath='{.contexts[0].name}' 2>/dev/null || echo "")
+          CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || echo "")
           if [ -z "$CURRENT_CONTEXT" ]; then
-            echo "Error: No context found in kubeconfig"
-            exit 1
+            CURRENT_CONTEXT=$(echo "$CONTEXTS" | head -1)
+            echo "No current context set, using first available: $CURRENT_CONTEXT"
           fi
-          # Set the namespace for the current context
+
+          # Set the namespace for the context
           kubectl config set-context "$CURRENT_CONTEXT" --namespace=${{ env.KUBERNETES_NAMESPACE }}
           kubectl config use-context "$CURRENT_CONTEXT"
+
+          # Verify context is set
+          kubectl config current-context
 
       - name: Verify cluster connection
         run: kubectl cluster-info

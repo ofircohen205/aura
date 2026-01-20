@@ -42,30 +42,6 @@ async def list_audits(
     )
 
 
-@router.get(
-    "/{audit_id}",
-    response_model=AuditResponse,
-    summary="Get audit by ID",
-    description="Retrieves a specific audit by its ID.",
-    responses={
-        200: {"description": "Audit retrieved successfully"},
-        404: {"description": "Audit not found"},
-        503: {"description": "Database connection unavailable"},
-    },
-)
-async def get_audit(audit_id: str) -> AuditResponse:
-    """
-    Retrieve audit by ID.
-
-    NOTE: This is a placeholder implementation. Full audit retrieval requires
-    database schema changes to track audit history.
-    """
-    # TODO: Implement full audit retrieval from database
-    from core.exceptions import NotFoundError
-
-    raise NotFoundError(f"Audit {audit_id} not found. Audit storage not yet implemented.")
-
-
 @router.post(
     "/trigger",
     summary="Trigger audit",
@@ -138,6 +114,30 @@ async def trigger_audit_get(
         created_at=datetime.utcnow().isoformat() + "Z",
         violations=None,
     )
+
+
+@router.get(
+    "/{audit_id}",
+    response_model=AuditResponse,
+    summary="Get audit by ID",
+    description="Retrieves a specific audit by its ID.",
+    responses={
+        200: {"description": "Audit retrieved successfully"},
+        404: {"description": "Audit not found"},
+        503: {"description": "Database connection unavailable"},
+    },
+)
+async def get_audit(audit_id: str) -> AuditResponse:
+    """
+    Retrieve audit by ID.
+
+    NOTE: This is a placeholder implementation. Full audit retrieval requires
+    database schema changes to track audit history.
+    """
+    # TODO: Implement full audit retrieval from database
+    from core.exceptions import NotFoundError
+
+    raise NotFoundError(f"Audit {audit_id} not found. Audit storage not yet implemented.")
 
 
 def create_audit_app() -> FastAPI:
