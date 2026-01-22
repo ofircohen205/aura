@@ -226,7 +226,6 @@ export default function RAGExplorerPage() {
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }

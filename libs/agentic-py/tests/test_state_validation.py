@@ -4,7 +4,12 @@ Tests for state validation functions.
 
 import pytest
 
-from agentic_py.workflows import AuditState, StruggleState, validate_audit_state, validate_struggle_state
+from agentic_py.workflows import (
+    AuditState,
+    StruggleState,
+    validate_audit_state,
+    validate_struggle_state,
+)
 
 
 class TestAuditStateValidation:

@@ -3,6 +3,7 @@
 The user is struggling with the following indicators:
 
 **Edit Frequency**: {edit_frequency} edits per time unit
+
 - This indicates how frequently the user is making changes
 - High frequency (>10) suggests the user is stuck or trying multiple approaches
 - Low frequency (<5) with errors suggests the user is blocked

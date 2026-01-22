@@ -34,8 +34,8 @@ export const ROUTES = {
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES] extends string
   ? (typeof ROUTES)[keyof typeof ROUTES]
   : (typeof ROUTES)[keyof typeof ROUTES] extends (id: string) => string
-  ? ReturnType<(typeof ROUTES)[keyof typeof ROUTES]>
-  : never;
+    ? ReturnType<(typeof ROUTES)[keyof typeof ROUTES]>
+    : never;
 
 export type NavigationItem = {
   name: string;
@@ -69,7 +69,7 @@ export function isSafeCallbackUrl(url: string): boolean {
     if (parsed.host && parsed.host !== "localhost") {
       return false;
     }
-  } catch { }
+  } catch {}
 
   return true;
 }

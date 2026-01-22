@@ -43,5 +43,5 @@ export const ENDPOINTS = {
 export type EndpointPath = (typeof ENDPOINTS)[keyof typeof ENDPOINTS] extends string
   ? (typeof ENDPOINTS)[keyof typeof ENDPOINTS]
   : (typeof ENDPOINTS)[keyof typeof ENDPOINTS] extends (id: string) => string
-  ? ReturnType<(typeof ENDPOINTS)[keyof typeof ENDPOINTS]>
-  : never;
+    ? ReturnType<(typeof ENDPOINTS)[keyof typeof ENDPOINTS]>
+    : never;

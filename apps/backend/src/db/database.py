@@ -51,7 +51,7 @@ async def get_session() -> AsyncGenerator[_AsyncSession]:
             await session.rollback()
             from api.exceptions import BaseApplicationException
 
-            if not isinstance(exc, (BaseApplicationException, HTTPException)):
+            if not isinstance(exc, BaseApplicationException | HTTPException):
                 logger.error("Database session rollback due to unexpected error", exc_info=True)
             raise
 

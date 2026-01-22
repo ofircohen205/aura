@@ -93,10 +93,7 @@ describe("RAG API", () => {
 
       const request: RAGQueryRequest = {
         query: "TypeError in Python",
-        error_patterns: [
-          "TypeError: unsupported operand type",
-          "NoneType object is not callable",
-        ],
+        error_patterns: ["TypeError: unsupported operand type", "NoneType object is not callable"],
         top_k: 10,
       };
 
