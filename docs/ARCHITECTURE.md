@@ -197,7 +197,7 @@ The web dashboard is built with Next.js 16 using the App Router pattern, providi
 
 3. **Services** (`src/services/`):
    - Business logic specific to the CLI (e.g., `GitService` for hook management)
-   - Interfaces with shared core libraries (`libs/core-py`)
+   - Interfaces with shared core libraries (`libs/agentic-py`)
 
 4. **Config** (`src/config/`):
    - YAML configuration loader (`~/.aura/config.yaml`)

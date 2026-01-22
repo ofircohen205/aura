@@ -11,14 +11,16 @@ from uuid import uuid4
 
 import pytest
 
-from db.models.user import User
-from services.auth.exceptions import (
+pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
+
+from db.models.user import User  # noqa: E402
+from services.auth.exceptions import (  # noqa: E402
     InactiveUserError,
     InvalidCredentialsError,
     RefreshTokenNotFoundError,
     UserAlreadyExistsError,
 )
-from services.auth.service import AuthService
+from services.auth.service import AuthService  # noqa: E402
 
 
 @pytest.fixture

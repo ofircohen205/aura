@@ -1,7 +1,9 @@
 """Events API Endpoints."""
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request
+from loguru import logger
 
+from api.logging import log_operation
 from api.v1.events.exceptions import register_exception_handlers
 from api.v1.events.schemas import EventRequest, EventResponse
 from services.events.service import events_service
@@ -21,7 +23,10 @@ router = APIRouter(tags=["events"])
         500: {"description": "Event processing failed"},
     },
 )
-async def ingest_event(event: EventRequest) -> EventResponse:
+async def ingest_event(
+    event: EventRequest,
+    request: Request,
+) -> EventResponse:
     """
     Ingest and process an event.
 
@@ -29,14 +34,30 @@ async def ingest_event(event: EventRequest) -> EventResponse:
     CLI, GitHub app) and processes them for analytics, workflow triggers,
     and other downstream systems.
     """
-    result = await events_service.ingest_event(
+    with log_operation(
+        "ingest_event",
+        request,
         source=event.source,
         event_type=event.type,
-        data=event.data,
-        timestamp=event.timestamp,
-    )
+        data_keys=list(event.data.keys()) if isinstance(event.data, dict) else None,
+        has_timestamp=event.timestamp is not None,
+    ) as op_ctx:
+        result = await events_service.ingest_event(
+            source=event.source,
+            event_type=event.type,
+            data=event.data,
+            timestamp=event.timestamp,
+        )
 
-    return EventResponse(**result)
+        op_ctx["event_id"] = result.get("id")
+        op_ctx["status"] = result.get("status")
+
+        logger.info(
+            "Event ingested successfully",
+            extra=op_ctx,
+        )
+
+        return EventResponse(**result)
 
 
 def create_events_app() -> FastAPI:

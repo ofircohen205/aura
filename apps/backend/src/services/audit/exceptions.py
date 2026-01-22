@@ -4,7 +4,7 @@ Audit Service Exceptions
 Service-specific exceptions for audit operations.
 """
 
-from core.exceptions import InternalServerError, ValidationError
+from api.exceptions import InternalServerError, ValidationError
 
 
 class AuditExecutionError(InternalServerError):

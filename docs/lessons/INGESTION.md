@@ -6,7 +6,7 @@ This document provides instructions for ingesting the educational lessons into t
 
 **Status: ✅ Not Required**
 
-The educational lessons are stored as Markdown files with YAML frontmatter. The existing `load_markdown()` function in `libs/core-py/src/core_py/rag/loaders.py` already supports:
+The educational lessons are stored as Markdown files with YAML frontmatter. The existing `load_markdown()` function in `libs/agentic-py/src/agentic_py/rag/loaders.py` already supports:
 
 - YAML frontmatter extraction
 - Metadata parsing (title, language, difficulty, prerequisites, keywords)
@@ -55,7 +55,7 @@ aura rag ingest docs/lessons/python/beginner/
 ### Using Python API
 
 ```python
-from core_py.rag.service import RagService
+from agentic_py.rag.service import RagService
 
 service = RagService(enabled=True)
 

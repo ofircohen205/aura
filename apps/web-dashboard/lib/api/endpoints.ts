@@ -31,10 +31,17 @@ export const ENDPOINTS = {
     TRIGGER: composeEndpoint(BASE_API, "audit", "trigger"),
     BY_ID: (auditId: string) => composeEndpoint(BASE_API, "audit", auditId),
   },
+
+  // RAG endpoints
+  RAG: {
+    BASE: composeEndpoint(BASE_API, "rag"),
+    QUERY: composeEndpoint(BASE_API, "rag", "query"),
+    STATS: composeEndpoint(BASE_API, "rag", "stats"),
+  },
 } as const;
 
 export type EndpointPath = (typeof ENDPOINTS)[keyof typeof ENDPOINTS] extends string
   ? (typeof ENDPOINTS)[keyof typeof ENDPOINTS]
   : (typeof ENDPOINTS)[keyof typeof ENDPOINTS] extends (id: string) => string
-    ? ReturnType<(typeof ENDPOINTS)[keyof typeof ENDPOINTS]>
-    : never;
+  ? ReturnType<(typeof ENDPOINTS)[keyof typeof ENDPOINTS]>
+  : never;

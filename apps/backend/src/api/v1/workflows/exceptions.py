@@ -7,7 +7,7 @@ Exception handlers for workflows service exceptions.
 from fastapi import FastAPI, Request
 from loguru import logger
 
-from core.exceptions import create_error_response
+from api.exceptions import create_error_response
 from services.workflows.exceptions import (
     WorkflowExecutionError,
     WorkflowNotFoundError,

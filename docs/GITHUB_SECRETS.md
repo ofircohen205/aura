@@ -4,92 +4,7 @@ This document lists all GitHub secrets required for CI/CD workflows in this repo
 
 ## Required Secrets
 
-### 1. Kubernetes Deployment Secrets
-
-These secrets contain base64-encoded kubeconfig files for accessing your Kubernetes clusters.
-
-#### `KUBECONFIG_DEV`
-
-- **Purpose**: Kubernetes cluster access for development environment
-- **Used by**: `k8s-deploy-dev.yml` workflow
-- **Format**: Base64-encoded kubeconfig file
-- **How to create**:
-
-  ```bash
-  # Get your kubeconfig and encode it
-  cat ~/.kube/config | base64 | pbcopy  # macOS
-  # Or for Linux:
-  cat ~/.kube/config | base64
-
-  # Then set it in GitHub:
-  gh secret set KUBECONFIG_DEV
-  # Paste the base64 string when prompted
-  ```
-
-#### `KUBECONFIG_STAGING`
-
-- **Purpose**: Kubernetes cluster access for staging environment
-- **Used by**: `k8s-deploy-staging.yml` workflow
-- **Format**: Base64-encoded kubeconfig file
-- **How to create**: Same as above, but for your staging cluster
-  ```bash
-  # Switch to staging cluster context first
-  kubectl config use-context <staging-context>
-  cat ~/.kube/config | base64 | pbcopy
-  gh secret set KUBECONFIG_STAGING
-  ```
-
-#### `KUBECONFIG_PRODUCTION`
-
-- **Purpose**: Kubernetes cluster access for production environment
-- **Used by**: `k8s-deploy-prod.yml` workflow
-- **Format**: Base64-encoded kubeconfig file
-- **How to create**: Same as above, but for your production cluster
-  ```bash
-  # Switch to production cluster context first
-  kubectl config use-context <production-context>
-  cat ~/.kube/config | base64 | pbcopy
-  gh secret set KUBECONFIG_PRODUCTION
-  ```
-
-**Important Notes:**
-
-- **Remote Cluster Required**: The kubeconfig must point to a remote/cloud Kubernetes cluster accessible from the internet. Local clusters (minikube, kind, Docker Desktop) or port-forwarded connections will NOT work in CI/CD.
-- Each kubeconfig should have at least one context defined
-- The kubeconfig must be valid YAML/JSON format
-- Ensure the service account/user in the kubeconfig has necessary permissions
-- For production, use a dedicated service account with least privilege
-- The cluster server URL must be accessible from GitHub Actions runners (public internet)
-
-**Getting kubeconfig for remote clusters:**
-
-```bash
-# Google Kubernetes Engine (GKE)
-gcloud container clusters get-credentials CLUSTER_NAME \
-  --region REGION \
-  --project PROJECT_ID
-
-# Amazon EKS
-aws eks update-kubeconfig \
-  --name CLUSTER_NAME \
-  --region REGION
-
-# Azure Kubernetes Service (AKS)
-az aks get-credentials \
-  --resource-group RESOURCE_GROUP \
-  --name CLUSTER_NAME
-
-# Generic/Other clusters
-# Export the kubeconfig for the remote cluster
-kubectl config view --flatten > remote-kubeconfig.yaml
-
-# Verify the server URL is remote (not localhost)
-kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'
-# Should show something like: https://xxx.xxx.xxx.xxx or https://cluster.example.com
-# NOT: https://127.0.0.1:xxxxx or https://localhost:xxxxx
-```
-
-### 2. Vercel Deployment Secrets
+### 1. Vercel Deployment Secrets
 
 These secrets are required for deploying the web dashboard to Vercel.
 
@@ -182,15 +97,11 @@ These secrets are mentioned in the codebase but not currently required:
 gh auth login
 
 # Set secrets (will prompt for value)
-gh secret set KUBECONFIG_DEV
-gh secret set KUBECONFIG_STAGING
-gh secret set KUBECONFIG_PRODUCTION
 gh secret set VERCEL_TOKEN
 gh secret set VERCEL_ORG_ID
 gh secret set VERCEL_PROJECT_ID
 
 # Or set from file/command output
-cat ~/.kube/config | base64 | gh secret set KUBECONFIG_DEV
 echo "your-vercel-token" | gh secret set VERCEL_TOKEN
 ```
 
@@ -201,7 +112,7 @@ echo "your-vercel-token" | gh secret set VERCEL_TOKEN
 curl -X POST \
   -H "Authorization: token YOUR_GITHUB_TOKEN" \
   -H "Accept: application/vnd.github.v3+json" \
-  https://api.github.com/repos/OWNER/REPO/actions/secrets/KUBECONFIG_DEV \
+  https://api.github.com/repos/OWNER/REPO/actions/secrets/VERCEL_TOKEN \
   -d '{"encrypted_value":"ENCRYPTED_VALUE","key_id":"KEY_ID"}'
 ```
 
@@ -216,7 +127,7 @@ To verify your secrets are set correctly:
 gh secret list
 
 # Check if a specific secret exists
-gh secret list | grep KUBECONFIG_DEV
+gh secret list | grep VERCEL_TOKEN
 ```
 
 ## Security Best Practices
@@ -230,55 +141,16 @@ gh secret list | grep KUBECONFIG_DEV
 
 ## Troubleshooting
 
-### "No context found in kubeconfig"
-
-- Ensure your kubeconfig file has at least one context defined
-- Verify the base64 encoding is correct
-- Check that the secret value is not empty
-
-### "Invalid kubeconfig format"
-
-- Verify the kubeconfig is valid YAML/JSON
-- Test locally: `kubectl config view`
-- Ensure the file was properly base64 encoded
-
 ### "Secret is not set"
 
 - Verify the secret name matches exactly (case-sensitive)
 - Check that the secret was added to the correct repository
 - Ensure you're checking the right environment (if using GitHub Environments)
 
-### "Kubeconfig points to localhost"
-
-- **Problem**: Your kubeconfig is configured for a local Kubernetes cluster (minikube, kind, Docker Desktop) or uses a port-forward
-- **Solution**: You need a kubeconfig for a remote/cloud Kubernetes cluster
-- **Steps**:
-  1. Get credentials for your remote cluster using the cloud provider CLI (see examples above)
-  2. Verify the server URL: `kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'`
-  3. The URL should be a remote address (e.g., `https://xxx.xxx.xxx.xxx`), not `127.0.0.1` or `localhost`
-  4. Encode and set the new kubeconfig: `cat ~/.kube/config | base64 | gh secret set KUBECONFIG_DEV`
-
-### "Connection to the server was refused"
-
-- **Problem**: The cluster server URL is not accessible from GitHub Actions
-- **Possible causes**:
-  - Kubeconfig points to localhost (see above)
-  - Cluster is behind a firewall/VPN
-  - Network restrictions block GitHub Actions IPs
-  - Cluster credentials are expired
-- **Solutions**:
-  - Use a cloud-managed Kubernetes cluster with public API endpoint
-  - Ensure firewall rules allow access from GitHub Actions IP ranges
-  - Verify credentials are valid: `kubectl cluster-info` (should work locally)
-  - Check if the cluster requires VPN access (not compatible with CI/CD)
-
 ## Summary Checklist
 
-- [ ] `KUBECONFIG_DEV` - Base64-encoded kubeconfig for dev cluster
-- [ ] `KUBECONFIG_STAGING` - Base64-encoded kubeconfig for staging cluster
-- [ ] `KUBECONFIG_PRODUCTION` - Base64-encoded kubeconfig for production cluster
 - [ ] `VERCEL_TOKEN` - Vercel API authentication token
 - [ ] `VERCEL_ORG_ID` - Vercel organization/team ID
 - [ ] `VERCEL_PROJECT_ID` - Vercel project ID
 
-Total: **6 required secrets**
+Total: **3 required secrets**

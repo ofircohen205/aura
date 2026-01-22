@@ -49,7 +49,7 @@ repos:
           ]
         exclude: ^(tests/|.*test.*\.py$)
         # Only run on changed Python files to speed up
-        files: ^(apps/backend/|libs/core-py/|clients/cli/)
+        files: ^(apps/backend/|libs/agentic-py/|clients/cli/)
 
   # TypeScript/JavaScript formatting
   - repo: https://github.com/pre-commit/mirrors-prettier

@@ -7,11 +7,11 @@ Includes FastAPI dependency for dependency injection.
 
 from collections.abc import AsyncGenerator
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel import SQLModel, create_engine  # noqa: F401
+from sqlmodel import SQLModel
 
 from core.config import get_settings
 
@@ -19,17 +19,8 @@ AsyncSession = _AsyncSession
 
 settings = get_settings()
 
-if "postgresql+psycopg://" in settings.postgres_db_uri:
-    async_db_uri = settings.postgres_db_uri.replace(
-        "postgresql+psycopg://", "postgresql+asyncpg://"
-    )
-elif "postgresql+asyncpg://" not in settings.postgres_db_uri:
-    async_db_uri = settings.postgres_db_uri.replace("postgresql://", "postgresql+asyncpg://")
-else:
-    async_db_uri = settings.postgres_db_uri
-
 async_engine = create_async_engine(
-    async_db_uri,
+    settings.postgres_db_uri,
     echo=settings.log_level == "DEBUG",
     pool_size=settings.postgres_pool_max_size,
     max_overflow=0,
@@ -58,9 +49,9 @@ async def get_session() -> AsyncGenerator[_AsyncSession]:
             await session.commit()
         except Exception as exc:
             await session.rollback()
-            from core.exceptions import BaseApplicationException
+            from api.exceptions import BaseApplicationException
 
-            if not isinstance(exc, BaseApplicationException):
+            if not isinstance(exc, (BaseApplicationException, HTTPException)):
                 logger.error("Database session rollback due to unexpected error", exc_info=True)
             raise
 

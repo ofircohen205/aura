@@ -25,6 +25,7 @@ export const ROUTES = {
     WORKFLOW_DETAIL: (id: string) => composeRoute(BASE_ROUTES.DASHBOARD, "workflows", id),
     AUDITS: composeRoute(BASE_ROUTES.DASHBOARD, "audits"),
     AUDIT_DETAIL: (id: string) => composeRoute(BASE_ROUTES.DASHBOARD, "audits", id),
+    RAG: composeRoute(BASE_ROUTES.DASHBOARD, "rag"),
     PROFILE: composeRoute(BASE_ROUTES.DASHBOARD, "profile"),
     SETTINGS: composeRoute(BASE_ROUTES.DASHBOARD, "settings"),
   },
@@ -33,8 +34,8 @@ export const ROUTES = {
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES] extends string
   ? (typeof ROUTES)[keyof typeof ROUTES]
   : (typeof ROUTES)[keyof typeof ROUTES] extends (id: string) => string
-    ? ReturnType<(typeof ROUTES)[keyof typeof ROUTES]>
-    : never;
+  ? ReturnType<(typeof ROUTES)[keyof typeof ROUTES]>
+  : never;
 
 export type NavigationItem = {
   name: string;
@@ -45,6 +46,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   { name: "Dashboard", href: ROUTES.DASHBOARD.ROOT },
   { name: "Workflows", href: ROUTES.DASHBOARD.WORKFLOWS },
   { name: "Audits", href: ROUTES.DASHBOARD.AUDITS },
+  { name: "RAG Explorer", href: ROUTES.DASHBOARD.RAG },
   { name: "Profile", href: ROUTES.DASHBOARD.PROFILE },
   { name: "Settings", href: ROUTES.DASHBOARD.SETTINGS },
 ] as const;
@@ -67,7 +69,7 @@ export function isSafeCallbackUrl(url: string): boolean {
     if (parsed.host && parsed.host !== "localhost") {
       return false;
     }
-  } catch {}
+  } catch { }
 
   return true;
 }

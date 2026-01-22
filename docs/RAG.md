@@ -87,7 +87,7 @@ aura rag ingest docs/ --dry-run
 ### Using Python API
 
 ```python
-from core_py.rag.service import RagService
+from agentic_py.rag.service import RagService
 
 # Initialize service
 service = RagService(enabled=True)
@@ -115,8 +115,8 @@ context = await service.query_knowledge(
 ### Using Individual Components
 
 ```python
-from core_py.rag.loaders import load_document
-from core_py.rag.chunking import get_text_splitter
+from agentic_py.rag.loaders import load_document
+from agentic_py.rag.chunking import get_text_splitter
 
 # Load a document
 doc = load_document("docs/guide.md")
@@ -426,7 +426,7 @@ aura rag ingest docs/lessons/python/
 Or using the Python API:
 
 ```python
-from core_py.rag.service import RagService
+from agentic_py.rag.service import RagService
 
 service = RagService(enabled=True)
 result = await service.ingest_directory("docs/lessons/")
@@ -456,7 +456,7 @@ The retrieved lesson content is then used by the struggle detection workflow to 
 
 ### Integration with Struggle Detection
 
-The struggle detection workflow (`libs/core-py/src/core_py/workflows/struggle.py`) automatically uses lesson content when:
+The struggle detection workflow (`libs/agentic-py/src/agentic_py/workflows/struggle.py`) automatically uses lesson content when:
 
 - Error patterns match lesson keywords
 - Edit frequency indicates struggle
@@ -581,8 +581,8 @@ logger.info(
 
 The RAG service is already integrated with:
 
-- **Struggle Detection Workflow** (`libs/core-py/src/core_py/workflows/struggle.py`)
-- **Code Audit Workflow** (`libs/core-py/src/core_py/workflows/audit.py`)
+- **Struggle Detection Workflow** (`libs/agentic-py/src/agentic_py/workflows/struggle.py`)
+- **Code Audit Workflow** (`libs/agentic-py/src/agentic_py/workflows/audit.py`)
 
 These workflows automatically use `RagService.query_knowledge()` to retrieve relevant context.
 
@@ -658,8 +658,8 @@ If you see `RAGFileError: File exceeds maximum size`:
 Run the test suite:
 
 ```bash
-pytest libs/core-py/tests/test_rag_ingestion.py -v
-pytest libs/core-py/tests/test_rag_service.py -v
+pytest libs/agentic-py/tests/test_rag_ingestion.py -v
+pytest libs/agentic-py/tests/test_rag_service.py -v
 ```
 
 ## Related Documentation

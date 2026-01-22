@@ -25,7 +25,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash 
 # Copy configuration files for dependency installation
 COPY pyproject.toml uv.lock ./
 COPY apps/backend/pyproject.toml apps/backend/
-COPY libs/core-py/pyproject.toml libs/core-py/
+COPY libs/agentic-py/pyproject.toml libs/agentic-py/
 COPY clients/cli/pyproject.toml clients/cli/
 
 # Copy libs and apps source (needed for editable install in workspace)
@@ -47,7 +47,7 @@ WORKDIR /app
 
 # Set up environment
 ENV PATH="/app/.venv/bin:/usr/local/bin:$PATH"
-ENV PYTHONPATH="/app/libs/core-py/src:/app/apps/backend/src:$PYTHONPATH"
+ENV PYTHONPATH="/app/libs/agentic-py/src:/app/apps/backend/src:$PYTHONPATH"
 
 # Install pre-commit
 RUN uv pip install pre-commit

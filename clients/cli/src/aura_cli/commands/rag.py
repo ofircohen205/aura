@@ -8,7 +8,7 @@ import asyncio
 from pathlib import Path
 
 import typer
-from core_py.rag.service import RagService
+from agentic_py.rag.service import RagService
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
@@ -89,7 +89,7 @@ def ingest(
         else:
             # Ingest directory
             if dry_run:
-                from core_py.rag.ingestion import discover_files
+                from agentic_py.rag.ingestion import discover_files
 
                 files = discover_files(path_obj, file_patterns=patterns, recursive=recursive)
                 console.print(

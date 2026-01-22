@@ -4,6 +4,7 @@ Events Service
 Business logic for event ingestion and processing.
 """
 
+import time
 import uuid
 from datetime import datetime
 from typing import Any
@@ -55,26 +56,42 @@ class EventsService:
             - Send to message queue for async processing
             - Update analytics/metrics
         """
-        # Validate input
+        start_time = time.time()
+        logger.debug(
+            "Event ingestion started",
+            extra={
+                "source": source,
+                "event_type": event_type,
+                "data_keys": list(data.keys()) if isinstance(data, dict) else None,
+                "has_timestamp": timestamp is not None,
+            },
+        )
+
         if not source or not source.strip():
+            logger.warning(
+                "Event ingestion failed: missing source",
+                extra={"source": source, "event_type": event_type},
+            )
             raise InvalidEventError("Event source is required")
 
         if not event_type or not event_type.strip():
+            logger.warning(
+                "Event ingestion failed: missing event type",
+                extra={"source": source, "event_type": event_type},
+            )
             raise InvalidEventError("Event type is required")
-
-        if not isinstance(data, dict):
-            raise InvalidEventError("Event data must be a dictionary")
 
         event_id = str(uuid.uuid4())
         event_timestamp = timestamp or datetime.now()
 
         logger.info(
-            "Event ingested (stub implementation)",
+            "Event ingestion started (stub implementation)",
             extra={
                 "event_id": event_id,
                 "source": source,
                 "event_type": event_type,
                 "timestamp": event_timestamp.isoformat(),
+                "data_keys_count": len(data) if isinstance(data, dict) else 0,
             },
         )
 
@@ -87,19 +104,37 @@ class EventsService:
             # - Update analytics/metrics
 
             # For now, return success response (stub)
-            return {
+            duration = time.time() - start_time
+            result = {
                 "status": "received",
                 "event_id": event_id,
                 "processed_at": event_timestamp.isoformat(),
             }
 
+            logger.info(
+                "Event ingestion completed",
+                extra={
+                    "event_id": event_id,
+                    "source": source,
+                    "event_type": event_type,
+                    "status": result["status"],
+                    "duration_ms": duration * 1000,
+                },
+            )
+
+            return result
+
+        except (InvalidEventError, EventProcessingError):
+            raise
         except Exception as e:
+            duration = time.time() - start_time
             logger.error(
                 "Event processing failed",
                 extra={
                     "event_id": event_id,
                     "source": source,
                     "event_type": event_type,
+                    "duration_ms": duration * 1000,
                     "error": str(e),
                     "error_type": type(e).__name__,
                 },
@@ -108,8 +143,4 @@ class EventsService:
             raise EventProcessingError(str(e)) from e
 
 
-# Global service instance (singleton pattern)
-# NOTE: This singleton pattern is acceptable for stateless services like EventsService.
-# For production with dependency injection frameworks, consider using DI instead.
-# The service is stateless and thread-safe, so singleton is safe for concurrent requests.
 events_service = EventsService()

@@ -52,7 +52,7 @@ FAILED=false
 echo -e "${YELLOW}[1/6] Running Python lint and type check...${NC}"
 
 echo "  → Running ruff lint..."
-if ! uv run ruff check apps/backend libs/core-py clients/cli; then
+if ! uv run ruff check apps/backend libs/agentic-py clients/cli; then
     echo -e "${RED}✗ Ruff lint failed${NC}"
     FAILED=true
 else
@@ -60,16 +60,16 @@ else
 fi
 
 echo "  → Running ruff format check..."
-if ! uv run ruff format --check apps/backend libs/core-py clients/cli; then
+if ! uv run ruff format --check apps/backend libs/agentic-py clients/cli; then
     echo -e "${RED}✗ Ruff format check failed${NC}"
-    echo -e "${YELLOW}  Run 'uv run ruff format apps/backend libs/core-py clients/cli' to fix${NC}"
+    echo -e "${YELLOW}  Run 'uv run ruff format apps/backend libs/agentic-py clients/cli' to fix${NC}"
     FAILED=true
 else
     echo -e "${GREEN}✓ Ruff format check passed${NC}"
 fi
 
 echo "  → Running mypy type checking..."
-MYPY_OUTPUT=$(uv run mypy apps/backend libs/core-py clients/cli 2>&1 || true)
+MYPY_OUTPUT=$(uv run mypy apps/backend libs/agentic-py clients/cli 2>&1 || true)
 MYPY_ERRORS=$(echo "$MYPY_OUTPUT" | grep -c "error:" || true)
 if [ "$MYPY_ERRORS" -gt 0 ]; then
     echo "$MYPY_OUTPUT" | tail -5
@@ -93,12 +93,12 @@ if [ "$SKIP_TESTS" = false ]; then
     fi
     cd ../..
 
-    echo "  → Running core-py tests..."
-    if ! cd libs/core-py && uv run pytest tests/ -v; then
-        echo -e "${RED}✗ Core-py tests failed${NC}"
+    echo "  → Running agentic-py tests..."
+    if ! cd libs/agentic-py && uv run pytest tests/ -v; then
+        echo -e "${RED}✗ Agentic-py tests failed${NC}"
         FAILED=true
     else
-        echo -e "${GREEN}✓ Core-py tests passed${NC}"
+        echo -e "${GREEN}✓ Agentic-py tests passed${NC}"
     fi
     cd ../..
 else
@@ -118,11 +118,11 @@ if [ "$SKIP_BUILD" = false ]; then
         echo -e "${GREEN}✓ Backend build passed${NC}"
     fi
 
-    if ! uv build libs/core-py; then
-        echo -e "${RED}✗ Core-py build failed${NC}"
+    if ! uv build libs/agentic-py; then
+        echo -e "${RED}✗ Agentic-py build failed${NC}"
         FAILED=true
     else
-        echo -e "${GREEN}✓ Core-py build passed${NC}"
+        echo -e "${GREEN}✓ Agentic-py build passed${NC}"
     fi
 
     if ! uv build clients/cli; then

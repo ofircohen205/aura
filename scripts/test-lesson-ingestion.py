@@ -15,10 +15,10 @@ from pathlib import Path
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root / "libs" / "core-py" / "src"))
+sys.path.insert(0, str(project_root / "libs" / "agentic-py" / "src"))
 
-from core_py.rag.loaders import load_markdown  # noqa: E402
-from core_py.rag.service import RagService  # noqa: E402
+from agentic_py.rag.loaders import load_markdown  # noqa: E402
+from agentic_py.rag.service import RagService  # noqa: E402
 
 
 async def test_loader():

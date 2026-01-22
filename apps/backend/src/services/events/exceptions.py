@@ -4,7 +4,7 @@ Events Service Exceptions
 Service-specific exceptions for event processing.
 """
 
-from core.exceptions import InternalServerError, ValidationError
+from api.exceptions import InternalServerError, ValidationError
 
 
 class EventProcessingError(InternalServerError):

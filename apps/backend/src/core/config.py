@@ -11,7 +11,7 @@ from enum import Enum
 from functools import lru_cache
 from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -51,17 +51,23 @@ class Environment(str, Enum):
 
 
 def _get_default_cors_origins() -> list[str]:
-    """Get default CORS origins based on environment."""
-    env = os.getenv("ENVIRONMENT", "local").lower()
-    if env == "local":
-        return ["http://localhost:3000"]
+    """
+    Get default CORS origins (will be overridden by model_validator if needed).
+
+    Returns:
+        List of allowed CORS origins
+    """
     return []
 
 
 def _get_default_cors_credentials() -> bool:
-    """Get default CORS credentials setting based on environment."""
-    env = os.getenv("ENVIRONMENT", "local").lower()
-    return env == "local"
+    """
+    Get default CORS credentials setting (will be overridden by model_validator if needed).
+
+    Returns:
+        Whether to allow credentials
+    """
+    return False
 
 
 class Settings(BaseSettings):
@@ -78,8 +84,9 @@ class Settings(BaseSettings):
         description="Application environment",
     )
 
+    # Database Configuration
     postgres_db_uri: str = Field(
-        default="postgresql+psycopg://aura:aura@localhost:5432/aura_db",
+        default="postgresql+asyncpg://aura:aura@localhost:5432/aura_db",
         description="PostgreSQL database URI for LangGraph checkpointer. Must be set via environment variable in production.",
     )
     postgres_pool_max_size: int = Field(
@@ -95,12 +102,13 @@ class Settings(BaseSettings):
         description="Minimum connection pool size",
     )
 
+    # CORS Configuration
     cors_allow_origins: list[str] = Field(
-        default_factory=_get_default_cors_origins,
+        default_factory=lambda: _get_default_cors_origins(),
         description="Allowed CORS origins",
     )
     cors_allow_credentials: bool = Field(
-        default_factory=_get_default_cors_credentials,
+        default_factory=lambda: _get_default_cors_credentials(),
         description="Allow credentials in CORS requests",
     )
     cors_allow_methods: list[str] = Field(
@@ -112,6 +120,7 @@ class Settings(BaseSettings):
         description="Allowed headers for CORS",
     )
 
+    # API Configuration
     api_title: str = Field(
         default="Aura Backend",
         description="API title for OpenAPI documentation",
@@ -121,15 +130,17 @@ class Settings(BaseSettings):
         description="API version",
     )
 
+    # Logging Configuration
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO",
         description="Logging level",
     )
-    log_format: Literal["json", "text"] = Field(
-        default="json" if os.getenv("ENVIRONMENT") != "local" else "text",
-        description="Log format (json for production, text for local)",
+    log_format: Literal["json", "text"] | None = Field(
+        default=None,
+        description="Log format (json for production, text for local). Auto-set based on environment if None.",
     )
 
+    # JWT Configuration
     jwt_secret_key: str = Field(
         default="test-secret-key-for-jwt-tokens-minimum-32-chars-for-testing-only",
         description="Secret key for JWT signing. Must be set via environment variable in production.",
@@ -149,11 +160,13 @@ class Settings(BaseSettings):
         description="Refresh token expiration time in days",
     )
 
+    # CSRF Protection Configuration
     csrf_protection_enabled: bool = Field(
         default=True,
         description="Enable CSRF protection middleware",
     )
 
+    # Rate Limiting Configuration
     rate_limit_enabled: bool = Field(
         default=True,
         description="Enable rate limiting middleware",
@@ -180,6 +193,55 @@ class Settings(BaseSettings):
         },
         description="Per-endpoint rate limit configuration (requests per window)",
     )
+
+    # Redis Configuration
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        description="Redis connection URL",
+    )
+    redis_auth_db: int = Field(
+        default=2,
+        description="Redis authentication database number",
+    )
+    redis_rate_limit_db: int = Field(
+        default=1,
+        description="Redis rate limit database number",
+    )
+    redis_llm_cache_db: int = Field(
+        default=0,
+        description="Redis LLM cache database number",
+    )
+    redis_enabled: bool = Field(
+        default=False,
+        description="Enable Redis for distributed caching and rate limiting",
+    )
+
+    @model_validator(mode="after")
+    def set_defaults_based_on_environment(self) -> "Settings":
+        """
+        Set default values based on environment after initialization.
+
+        This runs after all fields are set, allowing us to use the environment field.
+        Note: We can't perfectly detect if a value was explicitly set vs default,
+        so we use heuristics (empty list for CORS origins, False for credentials).
+        """
+        env_value = self.environment.value
+
+        # Set CORS defaults based on environment
+        # If cors_allow_origins is empty (default), set based on environment
+        if not self.cors_allow_origins and env_value == "local":
+            self.cors_allow_origins = ["http://localhost:3000"]
+
+        # Set CORS credentials based on environment
+        # If False (default) and local, set to True
+        if not self.cors_allow_credentials and env_value == "local":
+            self.cors_allow_credentials = True
+
+        # Set log format based on environment if not explicitly set
+        if self.log_format is None:
+            self.log_format = "text" if env_value == "local" else "json"
+
+        return self
 
     @field_validator("cors_allow_origins", mode="before")
     @classmethod
@@ -229,15 +291,12 @@ class Settings(BaseSettings):
                 raise ValueError(f"Invalid JSON format for rate_limit_endpoints: {e}") from e
         return v
 
-    @field_validator("cors_allow_origins")
-    @classmethod
-    def validate_cors_origins(cls, v: list[str]) -> list[str]:
-        """Validate CORS origins configuration."""
-        if "*" in v:
-            env = os.getenv("ENVIRONMENT", "local")
-            if env != "local":
-                raise ValueError("Cannot use '*' origin in non-local environments")
-        return v
+    @model_validator(mode="after")
+    def validate_cors_origins_environment(self) -> "Settings":
+        """Validate CORS origins against environment."""
+        if "*" in self.cors_allow_origins and self.environment.value != "local":
+            raise ValueError("Cannot use '*' origin in non-local environments")
+        return self
 
     def get_env_file(self) -> str | None:
         """Get the appropriate .env file based on environment."""
@@ -246,7 +305,7 @@ class Settings(BaseSettings):
             "staging": ".env.staging",
             "production": ".env.production",
         }
-        return env_files.get(self.environment)
+        return env_files.get(self.environment.value)
 
 
 @lru_cache

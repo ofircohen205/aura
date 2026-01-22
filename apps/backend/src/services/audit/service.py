@@ -4,6 +4,7 @@ Audit Service
 Business logic for code audit operations.
 """
 
+import time
 from typing import Any
 
 from loguru import logger
@@ -46,11 +47,24 @@ class AuditService:
             - Generate audit report
             - Store results in database
         """
+        start_time = time.time()
+        logger.debug(
+            "Audit trigger started",
+            extra={"repo_path": repo_path},
+        )
+
         # Validate repository path
         if not repo_path or not repo_path.strip():
+            logger.warning(
+                "Audit trigger failed: invalid repository path",
+                extra={"repo_path": repo_path},
+            )
             raise InvalidRepositoryPathError(repo_path)
 
-        logger.info("Audit triggered (stub implementation)", extra={"repo_path": repo_path})
+        logger.info(
+            "Audit triggered (stub implementation)",
+            extra={"repo_path": repo_path},
+        )
 
         try:
             # STUB: Audit logic not yet implemented
@@ -62,19 +76,33 @@ class AuditService:
             # - Store results in database
 
             # For now, return success response (stub)
-            return {
+            duration = time.time() - start_time
+            result = {
                 "status": "audit_started",
                 "repo": repo_path,
                 "message": "Audit process initiated (stub - not yet implemented)",
             }
 
+            logger.info(
+                "Audit trigger completed",
+                extra={
+                    "repo_path": repo_path,
+                    "status": result["status"],
+                    "duration_ms": duration * 1000,
+                },
+            )
+
+            return result
+
         except InvalidRepositoryPathError:
             raise
         except Exception as e:
+            duration = time.time() - start_time
             logger.error(
                 "Audit execution failed",
                 extra={
                     "repo_path": repo_path,
+                    "duration_ms": duration * 1000,
                     "error": str(e),
                     "error_type": type(e).__name__,
                 },
@@ -83,8 +111,4 @@ class AuditService:
             raise AuditExecutionError(str(e)) from e
 
 
-# Global service instance (singleton pattern)
-# NOTE: This singleton pattern is acceptable for stateless services like AuditService.
-# For production with dependency injection frameworks, consider using DI instead.
-# The service is stateless and thread-safe, so singleton is safe for concurrent requests.
 audit_service = AuditService()

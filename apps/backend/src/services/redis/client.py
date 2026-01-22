@@ -6,115 +6,209 @@ Uses connection pooling and handles errors gracefully.
 """
 
 import contextlib
-import os
 from typing import Any
 
 from loguru import logger
 
-# Redis configuration
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-REDIS_AUTH_DB = int(os.getenv("REDIS_AUTH_DB", "2"))  # Use DB 2 for auth tokens
-REDIS_RATE_LIMIT_DB = int(os.getenv("REDIS_RATE_LIMIT_DB", "1"))  # Use DB 1 for rate limiting
-REDIS_ENABLED = os.getenv("REDIS_ENABLED", "true").lower() == "true"
-
-# Redis clients (lazy initialization) - one per database
-_redis_clients: dict[int, Any] = {}
-_redis_available = False
+from core.config import get_settings
 
 
-def _get_redis_url(db_number: int) -> str:
+class RedisClient:
     """
-    Get Redis URL for a specific database.
+    Redis client manager for managing multiple database connections.
 
-    Args:
-        db_number: Database number to use
-
-    Returns:
-        Redis URL string with appropriate database
+    Manages Redis connections with connection pooling, one client per database.
+    Provides methods to get clients for specific databases and manage connections.
     """
-    # If REDIS_URL contains a database number, replace it
-    if "/" in REDIS_URL and REDIS_URL.split("/")[-1].isdigit():
-        base_url = REDIS_URL.rsplit("/", 1)[0]
-        return f"{base_url}/{db_number}"
-    return f"{REDIS_URL}/{db_number}"
 
+    def __init__(self, settings=None):
+        """
+        Initialize Redis client manager.
 
-async def get_redis_client(db_number: int | None = None):
-    """
-    Get or create Redis client with connection pooling.
+        Args:
+            settings: Optional Settings instance. If None, uses get_settings().
+        """
+        self._settings = settings or get_settings()
+        self._redis_clients: dict[int, Any] = {}
+        self._redis_available = False
 
-    Args:
-        db_number: Database number to use. If None, uses REDIS_AUTH_DB (default: 2)
+    @property
+    def redis_url(self) -> str:
+        """Get Redis URL from settings."""
+        return self._settings.redis_url
 
-    Returns:
-        Redis client instance or None if Redis is unavailable
-    """
-    global _redis_clients, _redis_available
+    @property
+    def redis_enabled(self) -> bool:
+        """Check if Redis is enabled from settings."""
+        return self._settings.redis_enabled
 
-    if not REDIS_ENABLED:
-        return None
+    @property
+    def redis_auth_db(self) -> int:
+        """Get Redis auth database number from settings."""
+        return self._settings.redis_auth_db
 
-    # Default to auth database if not specified
-    if db_number is None:
-        db_number = REDIS_AUTH_DB
+    @property
+    def redis_rate_limit_db(self) -> int:
+        """Get Redis rate limit database number from settings."""
+        return self._settings.redis_rate_limit_db
 
-    # Check if existing client is still valid
-    # Note: We can't easily check if the event loop matches, so we'll
-    # rely on the client to raise an error if there's a mismatch, which
-    # we'll catch and handle by recreating the client
-    if db_number in _redis_clients:
-        return _redis_clients[db_number]
+    def _get_redis_url(self, db_number: int) -> str:
+        """
+        Get Redis URL for a specific database.
 
-    try:
-        import redis.asyncio as redis  # type: ignore[import-untyped]
-        from redis.asyncio.connection import ConnectionPool  # type: ignore[import-untyped]
+        Args:
+            db_number: Database number to use
 
-        redis_url = _get_redis_url(db_number)
-        pool: ConnectionPool = ConnectionPool.from_url(
-            redis_url,
-            max_connections=10,
-            decode_responses=True,
-            socket_timeout=5.0,
-            socket_connect_timeout=5.0,
-        )
+        Returns:
+            Redis URL string with appropriate database
+        """
+        if "/" in self.redis_url and self.redis_url.split("/")[-1].isdigit():
+            base_url = self.redis_url.rsplit("/", 1)[0]
+            return f"{base_url}/{db_number}"
+        return f"{self.redis_url}/{db_number}"
 
-        client = redis.Redis(connection_pool=pool)
-        _redis_clients[db_number] = client
-        _redis_available = True
-        logger.info(
-            f"Redis client initialized for database {db_number}",
-            extra={"redis_url": redis_url.split("@")[-1], "db": db_number},
-        )
-        return client
+    async def get_client(self, db_number: int | None = None) -> Any | None:
+        """
+        Get or create Redis client with connection pooling.
 
-    except ImportError:
-        logger.warning("redis package not installed, Redis features disabled")
-        _redis_available = False
-        return None
-    except Exception as e:
-        logger.warning(
-            f"Failed to initialize Redis client for database {db_number}, Redis features disabled: {e}",
-            exc_info=True,
-        )
-        _redis_available = False
-        return None
+        Args:
+            db_number: Database number to use. If None, uses redis_auth_db (default: 2)
 
+        Returns:
+            Redis client instance or None if Redis is unavailable
+        """
+        if not self.redis_enabled:
+            return None
 
-async def close_redis_clients():
-    """
-    Close all Redis client connections.
+        if db_number is None:
+            db_number = self.redis_auth_db
 
-    This should be called during application shutdown or test cleanup
-    to properly close connections and avoid event loop issues.
-    """
-    global _redis_clients, _redis_available
+        if db_number in self._redis_clients:
+            return self._redis_clients[db_number]
 
-    for db_number, client in list(_redis_clients.items()):
         try:
-            await client.aclose()
-            logger.debug(f"Redis client closed for database {db_number}")
+            import redis.asyncio as redis  # type: ignore[import-untyped]
+            from redis.asyncio.connection import ConnectionPool  # type: ignore[import-untyped]
+
+            redis_url = self._get_redis_url(db_number)
+            pool: ConnectionPool = ConnectionPool.from_url(
+                redis_url,
+                max_connections=10,
+                decode_responses=True,
+                socket_timeout=5.0,
+                socket_connect_timeout=5.0,
+            )
+
+            client = redis.Redis(connection_pool=pool)
+            self._redis_clients[db_number] = client
+            self._redis_available = True
+
+            try:
+                await client.ping()
+                logger.info(
+                    "Redis client initialized and connected",
+                    extra={
+                        "redis_url": redis_url.split("@")[-1],
+                        "db": db_number,
+                        "status": "connected",
+                    },
+                )
+            except Exception as e:
+                logger.warning(
+                    "Redis client initialized but connection test failed",
+                    extra={
+                        "redis_url": redis_url.split("@")[-1],
+                        "db": db_number,
+                        "status": "connection_failed",
+                        "error": str(e),
+                    },
+                )
+
+            return client
+
+        except ImportError:
+            logger.warning("redis package not installed, Redis features disabled")
+            self._redis_available = False
+            return None
         except Exception as e:
-            # Handle cases where event loop is already closed
+            logger.warning(
+                f"Failed to initialize Redis client for database {db_number}, Redis features disabled: {e}",
+                exc_info=True,
+            )
+            self._redis_available = False
+            return None
+
+    async def close_all(self) -> None:
+        """
+        Close all Redis client connections.
+
+        This should be called during application shutdown or test cleanup
+        to properly close connections and avoid event loop issues.
+        """
+        for db_number, client in list(self._redis_clients.items()):
+            try:
+                await client.aclose()
+                logger.debug(f"Redis client closed for database {db_number}")
+            except Exception as e:
+                error_msg = str(e).lower()
+                if any(
+                    phrase in error_msg
+                    for phrase in [
+                        "event loop is closed",
+                        "no running event loop",
+                        "loop is closed",
+                    ]
+                ):
+                    logger.debug(
+                        f"Redis client for database {db_number} could not be closed (event loop closed)"
+                    )
+                else:
+                    logger.warning(
+                        f"Error closing Redis client for database {db_number}: {e}",
+                        exc_info=True,
+                    )
+
+        self._redis_clients.clear()
+        self._redis_available = False
+
+    async def test_connection(self, db_number: int | None = None) -> bool:
+        """
+        Test Redis connection availability.
+
+        Args:
+            db_number: Database number to test. If None, uses redis_auth_db (default: 2)
+
+        Returns:
+            True if Redis is available and connected, False otherwise
+        """
+        if not self.redis_enabled:
+            logger.debug("Redis connection test skipped: Redis disabled")
+            return False
+
+        if db_number is None:
+            db_number = self.redis_auth_db
+
+        logger.debug(
+            "Testing Redis connection",
+            extra={"db": db_number},
+        )
+
+        try:
+            client = await self.get_client(db_number)
+            if client is None:
+                logger.debug(
+                    "Redis connection test failed: client is None",
+                    extra={"db": db_number},
+                )
+                return False
+
+            await client.ping()
+            logger.debug(
+                "Redis connection test successful",
+                extra={"db": db_number},
+            )
+            return True
+        except Exception as e:
             error_msg = str(e).lower()
             if any(
                 phrase in error_msg
@@ -122,60 +216,42 @@ async def close_redis_clients():
                     "event loop is closed",
                     "no running event loop",
                     "loop is closed",
+                    "got future attached to a different loop",
                 ]
             ):
                 logger.debug(
-                    f"Redis client for database {db_number} could not be closed (event loop closed)"
+                    "Redis connection test skipped (event loop issue)",
+                    extra={"db": db_number, "error": str(e)},
                 )
+                if db_number in self._redis_clients:
+                    with contextlib.suppress(Exception):
+                        await self._redis_clients[db_number].aclose()
+                    del self._redis_clients[db_number]
             else:
                 logger.warning(
-                    f"Error closing Redis client for database {db_number}: {e}",
-                    exc_info=True,
+                    "Redis connection test failed",
+                    extra={"db": db_number, "error": str(e), "error_type": type(e).__name__},
                 )
+            return False
 
-    _redis_clients.clear()
-    _redis_available = False
+    @property
+    def is_available(self) -> bool:
+        """Check if Redis is available."""
+        return self._redis_available and self.redis_enabled
 
 
-async def test_redis_connection(db_number: int | None = None) -> bool:
+_redis_client_manager = RedisClient()
+
+
+def get_redis_client_manager() -> RedisClient:
     """
-    Test Redis connection availability.
-
-    Args:
-        db_number: Database number to test. If None, uses REDIS_AUTH_DB (default: 2)
+    Get the global RedisClient instance.
 
     Returns:
-        True if Redis is available and connected, False otherwise
-    """
-    if not REDIS_ENABLED:
-        return False
+        Global RedisClient instance
 
-    try:
-        client = await get_redis_client(db_number)
-        if client is None:
-            return False
-        await client.ping()
-        return True
-    except Exception as e:
-        # Handle event loop closure gracefully
-        error_msg = str(e).lower()
-        if any(
-            phrase in error_msg
-            for phrase in [
-                "event loop is closed",
-                "no running event loop",
-                "loop is closed",
-                "got future attached to a different loop",
-            ]
-        ):
-            logger.debug(f"Redis connection test skipped (event loop issue): {e}")
-            # Clear the cached client so it can be recreated with the correct event loop
-            if db_number is None:
-                db_number = REDIS_AUTH_DB
-            if db_number in _redis_clients:
-                with contextlib.suppress(Exception):
-                    await _redis_clients[db_number].aclose()
-                del _redis_clients[db_number]
-        else:
-            logger.warning(f"Redis connection test failed: {e}")
-        return False
+    Example:
+        >>> manager = get_redis_client_manager()
+        >>> client = await manager.get_client(manager.redis_auth_db)
+    """
+    return _redis_client_manager

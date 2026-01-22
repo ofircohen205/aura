@@ -2,9 +2,16 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, FastAPI, status
+from fastapi import APIRouter, Depends, FastAPI, Request, status
+from loguru import logger
 
 from api.dependencies import get_current_active_user
+from api.exceptions import (
+    BaseApplicationException,
+    application_exception_handler,
+    generic_exception_handler,
+)
+from api.logging import get_log_context, log_operation
 from api.v1.auth.exceptions import register_exception_handlers
 from api.v1.auth.schemas import (
     BulkOperationResponse,
@@ -20,32 +27,17 @@ from api.v1.auth.schemas import (
     UserResponse,
     UserUpdate,
 )
-from core.exceptions import (
-    BaseApplicationException,
-    application_exception_handler,
-    generic_exception_handler,
+from core.metrics import (
+    auth_failures_total,
+    auth_requests_total,
+    auth_token_refreshes_total,
+    metrics_helper,
+    tokens_issued_total,
+    user_registrations_total,
 )
 from db.database import AsyncSession, SessionDep
 from db.models.user import User
 from services.auth.service import auth_service
-
-try:
-    from core.metrics import (
-        auth_failures_total,
-        auth_requests_total,
-        auth_token_refreshes_total,
-        tokens_issued_total,
-        user_registrations_total,
-    )
-
-    METRICS_ENABLED = True
-except ImportError:
-    METRICS_ENABLED = False
-    auth_requests_total = None
-    auth_token_refreshes_total = None
-    user_registrations_total = None
-    auth_failures_total = None
-    tokens_issued_total = None
 
 router = APIRouter(tags=["auth"])
 
@@ -76,6 +68,7 @@ router = APIRouter(tags=["auth"])
 async def register(
     user_data: UserRegister,
     session: Annotated[AsyncSession, SessionDep],
+    request: Request,
 ) -> TokenResponse:
     """
     Register a new user.
@@ -84,38 +77,47 @@ async def register(
     The password is hashed using bcrypt before storage.
     Returns access and refresh tokens for immediate authentication.
     """
-    try:
-        user = await auth_service.register_user(
-            session=session,
-            email=user_data.email,
-            username=user_data.username,
-            password=user_data.password,
-        )
+    with log_operation(
+        "user_register",
+        request,
+        email=user_data.email,
+        username=user_data.username,
+    ) as op_ctx:
+        try:
+            user = await auth_service.register_user(
+                session=session,
+                email=user_data.email,
+                username=user_data.username,
+                password=user_data.password,
+            )
 
-        # Create access token
-        access_token = await auth_service.create_access_token(user)
-        if METRICS_ENABLED:
-            tokens_issued_total.labels(token_type="access").inc()
+            op_ctx["user_id"] = str(user.id)
 
-        # Create refresh token
-        refresh_token = await auth_service.create_refresh_token_record(user=user)
-        if METRICS_ENABLED:
-            tokens_issued_total.labels(token_type="refresh").inc()
+            access_token = await auth_service.create_access_token(user)
+            metrics_helper.inc_counter(tokens_issued_total, token_type="access")
 
-        if METRICS_ENABLED:
-            user_registrations_total.labels(status="success").inc()
-            auth_requests_total.labels(endpoint="register", status="success").inc()
+            refresh_token = await auth_service.create_refresh_token_record(user=user)
+            metrics_helper.inc_counter(tokens_issued_total, token_type="refresh")
 
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
-        )
-    except Exception:
-        if METRICS_ENABLED:
-            user_registrations_total.labels(status="failure").inc()
-            auth_requests_total.labels(endpoint="register", status="failure").inc()
-        raise
+            metrics_helper.inc_counter(user_registrations_total, status="success")
+            metrics_helper.inc_counter(auth_requests_total, endpoint="register", status="success")
+
+            logger.info(
+                "User registration successful",
+                extra=op_ctx,
+            )
+
+            return TokenResponse(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                token_type="bearer",
+            )
+        except Exception as e:
+            op_ctx["error"] = str(e)
+            op_ctx["error_type"] = type(e).__name__
+            metrics_helper.inc_counter(user_registrations_total, status="failure")
+            metrics_helper.inc_counter(auth_requests_total, endpoint="register", status="failure")
+            raise
 
 
 @router.post(
@@ -144,44 +146,55 @@ async def register(
 async def login(
     credentials: UserLogin,
     session: Annotated[AsyncSession, SessionDep],
+    request: Request,
 ) -> TokenResponse:
     """
     Authenticate a user and receive tokens.
 
     Validates user credentials and returns JWT access token and refresh token.
     """
-    try:
-        user = await auth_service.authenticate_user(
-            session=session,
-            email=credentials.email,
-            password=credentials.password,
-        )
+    with log_operation(
+        "user_login",
+        request,
+        email=credentials.email,
+    ) as op_ctx:
+        try:
+            user = await auth_service.authenticate_user(
+                session=session,
+                email=credentials.email,
+                password=credentials.password,
+            )
 
-        access_token = await auth_service.create_access_token(user)
-        if METRICS_ENABLED:
-            tokens_issued_total.labels(token_type="access").inc()
+            op_ctx["user_id"] = str(user.id)
 
-        refresh_token = await auth_service.create_refresh_token_record(user=user)
-        if METRICS_ENABLED:
-            tokens_issued_total.labels(token_type="refresh").inc()
+            access_token = await auth_service.create_access_token(user)
+            metrics_helper.inc_counter(tokens_issued_total, token_type="access")
 
-        if METRICS_ENABLED:
-            auth_requests_total.labels(endpoint="login", status="success").inc()
+            refresh_token = await auth_service.create_refresh_token_record(user=user)
+            metrics_helper.inc_counter(tokens_issued_total, token_type="refresh")
 
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
-        )
-    except Exception as e:
-        if METRICS_ENABLED:
-            auth_requests_total.labels(endpoint="login", status="failure").inc()
+            metrics_helper.inc_counter(auth_requests_total, endpoint="login", status="success")
+
+            logger.info(
+                "User login successful",
+                extra=op_ctx,
+            )
+
+            return TokenResponse(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                token_type="bearer",
+            )
+        except Exception as e:
+            op_ctx["error"] = str(e)
+            op_ctx["error_type"] = type(e).__name__
+            metrics_helper.inc_counter(auth_requests_total, endpoint="login", status="failure")
             error_type = type(e).__name__
             if "InvalidCredentialsError" in error_type:
-                auth_failures_total.labels(reason="invalid_credentials").inc()
+                metrics_helper.inc_counter(auth_failures_total, reason="invalid_credentials")
             elif "InactiveUserError" in error_type:
-                auth_failures_total.labels(reason="inactive_user").inc()
-        raise
+                metrics_helper.inc_counter(auth_failures_total, reason="inactive_user")
+            raise
 
 
 @router.post(
@@ -198,6 +211,7 @@ async def login(
 async def refresh(
     token_data: RefreshTokenRequest,
     session: Annotated[AsyncSession, SessionDep],
+    request: Request,
 ) -> TokenResponse:
     """
     Refresh an access token.
@@ -205,31 +219,43 @@ async def refresh(
     Validates the refresh token and returns a new access token.
     The refresh token remains valid until it expires.
     """
-    try:
-        access_token, refresh_token = await auth_service.refresh_access_token(
-            session=session,
-            refresh_token_str=token_data.refresh_token,
-        )
-        if METRICS_ENABLED:
-            auth_token_refreshes_total.labels(status="success").inc()
-            tokens_issued_total.labels(token_type="access").inc()
-            auth_requests_total.labels(endpoint="refresh", status="success").inc()
+    with log_operation(
+        "token_refresh",
+        request,
+        token_preview=token_data.refresh_token[:10] + "..."
+        if len(token_data.refresh_token) > 10
+        else "***",
+    ) as op_ctx:
+        try:
+            access_token, refresh_token = await auth_service.refresh_access_token(
+                session=session,
+                refresh_token_str=token_data.refresh_token,
+            )
+            metrics_helper.inc_counter(auth_token_refreshes_total, status="success")
+            metrics_helper.inc_counter(tokens_issued_total, token_type="access")
+            metrics_helper.inc_counter(auth_requests_total, endpoint="refresh", status="success")
 
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
-        )
-    except Exception as e:
-        if METRICS_ENABLED:
-            auth_token_refreshes_total.labels(status="failure").inc()
-            auth_requests_total.labels(endpoint="refresh", status="failure").inc()
+            logger.info(
+                "Token refresh successful",
+                extra=op_ctx,
+            )
+
+            return TokenResponse(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                token_type="bearer",
+            )
+        except Exception as e:
+            op_ctx["error"] = str(e)
+            op_ctx["error_type"] = type(e).__name__
+            metrics_helper.inc_counter(auth_token_refreshes_total, status="failure")
+            metrics_helper.inc_counter(auth_requests_total, endpoint="refresh", status="failure")
             error_type = type(e).__name__
             if "RefreshTokenNotFoundError" in error_type:
-                auth_failures_total.labels(reason="invalid_token").inc()
+                metrics_helper.inc_counter(auth_failures_total, reason="invalid_token")
             elif "TokenExpiredError" in error_type:
-                auth_failures_total.labels(reason="expired_token").inc()
-        raise
+                metrics_helper.inc_counter(auth_failures_total, reason="expired_token")
+            raise
 
 
 @router.post(
@@ -244,17 +270,30 @@ async def refresh(
 async def logout(
     token_data: RefreshTokenRequest,
     session: Annotated[AsyncSession, SessionDep],
+    request: Request,
 ) -> dict[str, str]:
     """
     Log out a user by revoking their refresh token.
 
     The refresh token is deleted from the database, preventing further use.
     """
-    await auth_service.revoke_refresh_token(
-        refresh_token_str=token_data.refresh_token,
-    )
+    with log_operation(
+        "user_logout",
+        request,
+        token_preview=token_data.refresh_token[:10] + "..."
+        if len(token_data.refresh_token) > 10
+        else "***",
+    ) as op_ctx:
+        await auth_service.revoke_refresh_token(
+            refresh_token_str=token_data.refresh_token,
+        )
 
-    return {"message": "Logged out successfully"}
+        logger.info(
+            "User logout successful",
+            extra=op_ctx,
+        )
+
+        return {"message": "Logged out successfully"}
 
 
 @router.get(
@@ -270,12 +309,19 @@ async def logout(
 )
 async def get_current_user_profile(
     current_user: Annotated[User, Depends(get_current_active_user)],
+    request: Request,
 ) -> UserResponse:
     """
     Get the current user's profile.
 
     Returns the profile information of the authenticated user.
     """
+    log_context = get_log_context(request, user_id=str(current_user.id))
+    logger.debug(
+        "Getting current user profile",
+        extra=log_context,
+    )
+
     user_response = UserResponse.model_validate(current_user)
     user_response.links = {
         "self": "/api/v1/auth/me",
@@ -300,25 +346,38 @@ async def update_current_user_profile(
     user_update: UserUpdate,
     current_user: Annotated[User, Depends(get_current_active_user)],
     session: Annotated[AsyncSession, SessionDep],
+    request: Request,
 ) -> UserResponse:
     """
     Update the current user's profile.
 
     Allows updating username and email. Both fields are optional.
     """
-    updated_user = await auth_service.update_user(
-        session=session,
-        user=current_user,
-        username=user_update.username,
-        email=user_update.email,
-    )
+    with log_operation(
+        "user_profile_update",
+        request,
+        user_id=str(current_user.id),
+        updating_username=user_update.username is not None,
+        updating_email=user_update.email is not None,
+    ) as op_ctx:
+        updated_user = await auth_service.update_user(
+            session=session,
+            user=current_user,
+            username=user_update.username,
+            email=user_update.email,
+        )
 
-    user_response = UserResponse.model_validate(updated_user)
-    user_response.links = {
-        "self": "/api/v1/auth/me",
-        "update": "/api/v1/auth/me",
-    }
-    return user_response
+        logger.info(
+            "User profile updated successfully",
+            extra=op_ctx,
+        )
+
+        user_response = UserResponse.model_validate(updated_user)
+        user_response.links = {
+            "self": "/api/v1/auth/me",
+            "update": "/api/v1/auth/me",
+        }
+        return user_response
 
 
 @router.get(
@@ -334,6 +393,7 @@ async def update_current_user_profile(
     },
 )
 async def list_users(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
     session: Annotated[AsyncSession, SessionDep],
     pagination: PaginationParams = Depends(),  # type: ignore[misc]
@@ -345,28 +405,50 @@ async def list_users(
     """
     from dao.user import user_dao
 
-    # Check admin role
-    if "admin" not in current_user.roles:
-        from core.exceptions import ForbiddenError
+    log_context = get_log_context(request, user_id=str(current_user.id))
 
+    if "admin" not in current_user.roles:
+        from api.exceptions import ForbiddenError
+
+        logger.warning(
+            "Non-admin user attempted to list users",
+            extra=log_context,
+        )
         raise ForbiddenError("Admin role required to list users")
 
-    users: list[User] = await user_dao.get_all(
-        session=session,
-        limit=pagination.limit,
-        offset=pagination.offset,
-    )
-
-    total = await user_dao.count(session)
-
-    user_responses = [UserResponse.model_validate(user) for user in users]
-
-    return PaginatedResponse.create(
-        items=user_responses,
-        total=total,
+    with log_operation(
+        "list_users",
+        request,
+        user_id=str(current_user.id),
         page=pagination.page,
         page_size=pagination.page_size,
-    )
+        limit=pagination.limit,
+        offset=pagination.offset,
+    ) as op_ctx:
+        users: list[User] = await user_dao.get_all(
+            session=session,
+            limit=pagination.limit,
+            offset=pagination.offset,
+        )
+
+        total = await user_dao.count(session)
+
+        op_ctx["users_returned"] = len(users)
+        op_ctx["total_users"] = total
+
+        logger.info(
+            "Users listed successfully",
+            extra=op_ctx,
+        )
+
+        user_responses = [UserResponse.model_validate(user) for user in users]
+
+        return PaginatedResponse.create(
+            items=user_responses,
+            total=total,
+            page=pagination.page,
+            page_size=pagination.page_size,
+        )
 
 
 @router.post(
@@ -385,32 +467,52 @@ async def bulk_create_users(
     bulk_data: BulkUserCreate,
     current_user: Annotated[User, Depends(get_current_active_user)],
     session: Annotated[AsyncSession, SessionDep],
+    request: Request,
 ) -> BulkOperationResponse:
     """
     Create multiple users in bulk.
 
     Requires admin role. Returns count of successful and failed creations.
     """
-    from core.exceptions import ForbiddenError
+    from api.exceptions import ForbiddenError
 
     if "admin" not in current_user.roles:
+        log_context = get_log_context(request, user_id=str(current_user.id))
+        logger.warning(
+            "Non-admin user attempted bulk user creation",
+            extra=log_context,
+        )
         raise ForbiddenError("Admin role required for bulk operations")
 
-    users_data = [
-        {"email": user.email, "username": user.username, "password": user.password}
-        for user in bulk_data.users
-    ]
+    with log_operation(
+        "bulk_create_users",
+        request,
+        user_id=str(current_user.id),
+        users_count=len(bulk_data.users),
+    ) as op_ctx:
+        users_data = [
+            {"email": user.email, "username": user.username, "password": user.password}
+            for user in bulk_data.users
+        ]
 
-    created_users, errors = await auth_service.bulk_create_users(
-        session=session,
-        users_data=users_data,
-    )
+        created_users, errors = await auth_service.bulk_create_users(
+            session=session,
+            users_data=users_data,
+        )
 
-    return BulkOperationResponse(
-        success_count=len(created_users),
-        error_count=len(errors),
-        errors=errors,
-    )
+        op_ctx["success_count"] = len(created_users)
+        op_ctx["error_count"] = len(errors)
+
+        logger.info(
+            "Bulk user creation completed",
+            extra=op_ctx,
+        )
+
+        return BulkOperationResponse(
+            success_count=len(created_users),
+            error_count=len(errors),
+            errors=errors,
+        )
 
 
 @router.patch(
@@ -429,27 +531,47 @@ async def bulk_update_users(
     bulk_data: BulkUserUpdate,
     current_user: Annotated[User, Depends(get_current_active_user)],
     session: Annotated[AsyncSession, SessionDep],
+    request: Request,
 ) -> BulkOperationResponse:
     """
     Update multiple users in bulk.
 
     Requires admin role. Returns count of successful and failed updates.
     """
-    from core.exceptions import ForbiddenError
+    from api.exceptions import ForbiddenError
 
     if "admin" not in current_user.roles:
+        log_context = get_log_context(request, user_id=str(current_user.id))
+        logger.warning(
+            "Non-admin user attempted bulk user update",
+            extra=log_context,
+        )
         raise ForbiddenError("Admin role required for bulk operations")
 
-    updated_users, errors = await auth_service.bulk_update_users(
-        session=session,
-        updates=bulk_data.user_updates,
-    )
+    with log_operation(
+        "bulk_update_users",
+        request,
+        user_id=str(current_user.id),
+        updates_count=len(bulk_data.user_updates),
+    ) as op_ctx:
+        updated_users, errors = await auth_service.bulk_update_users(
+            session=session,
+            updates=bulk_data.user_updates,
+        )
 
-    return BulkOperationResponse(
-        success_count=len(updated_users),
-        error_count=len(errors),
-        errors=errors,
-    )
+        op_ctx["success_count"] = len(updated_users)
+        op_ctx["error_count"] = len(errors)
+
+        logger.info(
+            "Bulk user update completed",
+            extra=op_ctx,
+        )
+
+        return BulkOperationResponse(
+            success_count=len(updated_users),
+            error_count=len(errors),
+            errors=errors,
+        )
 
 
 @router.delete(
@@ -468,27 +590,47 @@ async def bulk_delete_users(
     bulk_data: BulkUserDelete,
     current_user: Annotated[User, Depends(get_current_active_user)],
     session: Annotated[AsyncSession, SessionDep],
+    request: Request,
 ) -> BulkOperationResponse:
     """
     Delete multiple users in bulk.
 
     Requires admin role. Returns count of successful and failed deletions.
     """
-    from core.exceptions import ForbiddenError
+    from api.exceptions import ForbiddenError
 
     if "admin" not in current_user.roles:
+        log_context = get_log_context(request, user_id=str(current_user.id))
+        logger.warning(
+            "Non-admin user attempted bulk user deletion",
+            extra=log_context,
+        )
         raise ForbiddenError("Admin role required for bulk operations")
 
-    deleted_count, errors = await auth_service.bulk_delete_users(
-        session=session,
-        user_ids=bulk_data.user_ids,
-    )
+    with log_operation(
+        "bulk_delete_users",
+        request,
+        user_id=str(current_user.id),
+        user_ids_count=len(bulk_data.user_ids),
+    ) as op_ctx:
+        deleted_count, errors = await auth_service.bulk_delete_users(
+            session=session,
+            user_ids=bulk_data.user_ids,
+        )
 
-    return BulkOperationResponse(
-        success_count=deleted_count,
-        error_count=len(errors),
-        errors=errors,
-    )
+        op_ctx["success_count"] = deleted_count
+        op_ctx["error_count"] = len(errors)
+
+        logger.info(
+            "Bulk user deletion completed",
+            extra=op_ctx,
+        )
+
+        return BulkOperationResponse(
+            success_count=deleted_count,
+            error_count=len(errors),
+            errors=errors,
+        )
 
 
 def create_auth_app() -> FastAPI:

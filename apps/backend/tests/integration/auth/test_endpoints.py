@@ -24,9 +24,10 @@ async def reset_redis_clients():
     """
     # Clean up any existing Redis clients before the test
     try:
-        from services.redis import close_redis_clients
+        from services.redis import get_redis_client_manager
 
-        await close_redis_clients()
+        manager = get_redis_client_manager()
+        await manager.close_all()
     except Exception:
         # Don't fail if cleanup fails (e.g., no clients exist)
         pass
@@ -35,9 +36,10 @@ async def reset_redis_clients():
 
     # Clean up after test as well
     try:
-        from services.redis import close_redis_clients
+        from services.redis import get_redis_client_manager
 
-        await close_redis_clients()
+        manager = get_redis_client_manager()
+        await manager.close_all()
     except Exception:
         # Don't fail if cleanup fails
         pass
@@ -61,9 +63,10 @@ async def clean_test_users(init_test_db) -> AsyncGenerator[None]:
 
     # Clean up Redis clients first to avoid event loop issues
     try:
-        from services.redis import close_redis_clients
+        from services.redis import get_redis_client_manager
 
-        await close_redis_clients()
+        manager = get_redis_client_manager()
+        await manager.close_all()
     except Exception:
         # Don't fail the test if Redis cleanup fails
         pass
