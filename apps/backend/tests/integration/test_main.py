@@ -13,6 +13,11 @@ from fastapi.testclient import TestClient
 
 pytestmark = [pytest.mark.integration]
 
+# Add backend directory to path for conf import
+BACKEND_DIR = Path(__file__).parent.parent.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 # Add src directory to path for imports
 SRC_DIR = Path(__file__).parent.parent.parent / "src"
 if str(SRC_DIR) not in sys.path:
