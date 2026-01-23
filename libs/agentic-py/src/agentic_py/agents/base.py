@@ -6,8 +6,8 @@ Shared utilities for creating and configuring agents.
 
 from typing import Any
 
+from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
-from langgraph.agents import create_agent
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from agentic_py.ai.llm import get_llm_client
