@@ -27,6 +27,8 @@ class TestAuditStateValidation:
             "added_lines": 10,
             "removed_lines": 5,
             "violation_details": [],
+            "retrieved_context": None,
+            "tool_calls": None,
         }
 
         validated = validate_audit_state(state)
@@ -103,6 +105,8 @@ class TestStruggleStateValidation:
             "history": ["history1"],
             "is_struggling": True,
             "lesson_recommendation": "Test lesson",
+            "retrieved_context": None,
+            "tool_calls": None,
         }
 
         validated = validate_struggle_state(state)

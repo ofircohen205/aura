@@ -64,7 +64,7 @@ async def test_invoke_llm_with_retry_empty_prompt():
 @pytest.mark.asyncio
 async def test_invoke_llm_with_retry_success():
     """Test successful LLM invocation."""
-    with patch("agentic_py.ml.llm.LLM_ENABLED", True):
+    with patch("agentic_py.ai.llm.LLM_ENABLED", True):
         mock_llm = MagicMock()
         mock_response = MagicMock()
         mock_response.content = "Test response"

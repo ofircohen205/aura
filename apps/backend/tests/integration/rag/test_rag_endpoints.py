@@ -27,10 +27,42 @@ if str(SRC_DIR) not in sys.path:
 import conf  # noqa: F401, E402
 
 # Import the API v1 RAG app
+from api.dependencies import get_current_active_user  # noqa: E402
 from api.v1.rag.endpoints import create_rag_app  # noqa: E402
+from db.models.user import User  # noqa: E402
 
 # Create a test app using the API v1 RAG app
 test_app = create_rag_app()
+
+
+@pytest.fixture
+def mock_user():
+    """Create a mock user for testing."""
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    return User(
+        id=uuid4(),
+        email="test@example.com",
+        username="testuser",
+        hashed_password="hashed",
+        is_active=True,
+        is_verified=True,
+        roles=["user"],
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+
+@pytest.fixture(autouse=True)
+def override_auth_dependency(mock_user):
+    """Override authentication dependency for all tests."""
+    async def mock_get_current_active_user():
+        return mock_user
+
+    test_app.dependency_overrides[get_current_active_user] = mock_get_current_active_user
+    yield
+    test_app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -50,7 +82,7 @@ async def test_query_rag_success(mock_rag_service):
     ):
         client = TestClient(test_app)
         response = client.post(
-            "/rag/query",
+            "/query",
             json={
                 "query": "How do I use a for loop in Python?",
                 "error_patterns": ["NameError"],
@@ -84,7 +116,7 @@ async def test_query_rag_without_error_patterns(mock_rag_service):
     ):
         client = TestClient(test_app)
         response = client.post(
-            "/rag/query",
+            "/query",
             json={
                 "query": "Python list comprehension",
                 "top_k": 3,
@@ -110,7 +142,7 @@ async def test_query_rag_default_top_k(mock_rag_service):
     ):
         client = TestClient(test_app)
         response = client.post(
-            "/rag/query",
+            "/query",
             json={
                 "query": "TypeScript async await",
             },
@@ -128,7 +160,7 @@ async def test_query_rag_disabled():
     with patch("api.v1.rag.endpoints.RAG_ENABLED", False):
         client = TestClient(test_app)
         response = client.post(
-            "/rag/query",
+            "/query",
             json={
                 "query": "Test query",
             },
@@ -173,7 +205,7 @@ async def test_query_rag_missing_query():
     with patch("api.v1.rag.endpoints.RAG_ENABLED", True):
         client = TestClient(test_app)
         response = client.post(
-            "/rag/query",
+            "/query",
             json={},
         )
 
@@ -191,7 +223,7 @@ async def test_query_rag_service_error(mock_rag_service):
     ):
         client = TestClient(test_app)
         response = client.post(
-            "/rag/query",
+            "/query",
             json={
                 "query": "Test query",
             },
@@ -251,7 +283,7 @@ async def test_get_rag_stats_success():
     ):
         mock_session_dep.return_value = mock_db
         client = TestClient(test_app)
-        response = client.get("/rag/stats")
+        response = client.get("/stats")
 
         assert response.status_code == 200
         data = response.json()
@@ -282,7 +314,7 @@ async def test_get_rag_stats_no_collection():
     ):
         mock_session_dep.return_value = mock_db
         client = TestClient(test_app)
-        response = client.get("/rag/stats")
+        response = client.get("/stats")
 
         assert response.status_code == 200
         data = response.json()
@@ -298,7 +330,7 @@ async def test_get_rag_stats_disabled():
     """Test RAG stats when service is disabled."""
     with patch("api.v1.rag.endpoints.RAG_ENABLED", False):
         client = TestClient(test_app)
-        response = client.get("/rag/stats")
+        response = client.get("/stats")
 
         assert response.status_code == 503
         data = response.json()
@@ -318,7 +350,7 @@ async def test_get_rag_stats_database_error():
     ):
         mock_session_dep.return_value = mock_db
         client = TestClient(test_app)
-        response = client.get("/rag/stats")
+        response = client.get("/stats")
 
         assert response.status_code == 500
         data = response.json()
@@ -335,7 +367,7 @@ async def test_query_rag_empty_error_patterns(mock_rag_service):
     ):
         client = TestClient(test_app)
         response = client.post(
-            "/rag/query",
+            "/query",
             json={
                 "query": "Test query",
                 "error_patterns": [],
@@ -357,7 +389,7 @@ async def test_query_rag_multiple_error_patterns(mock_rag_service):
     ):
         client = TestClient(test_app)
         response = client.post(
-            "/rag/query",
+            "/query",
             json={
                 "query": "TypeError in Python",
                 "error_patterns": [
@@ -411,7 +443,7 @@ async def test_get_rag_stats_empty_breakdowns():
     ):
         mock_session_dep.return_value = mock_db
         client = TestClient(test_app)
-        response = client.get("/rag/stats")
+        response = client.get("/stats")
 
         assert response.status_code == 200
         data = response.json()
