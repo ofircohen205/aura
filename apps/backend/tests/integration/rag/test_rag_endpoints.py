@@ -278,26 +278,29 @@ async def test_get_rag_stats_success():
         mock_diff_result,  # difficulty breakdown
     ]
 
+    async def mock_get_session():
+        yield mock_db
+
     with (
         patch("api.v1.rag.endpoints.RAG_ENABLED", True),
-        patch("api.v1.rag.endpoints.SessionDep") as mock_session_dep,
         patch("api.v1.rag.endpoints.PGVECTOR_COLLECTION", "test_collection"),
     ):
-        mock_session_dep.return_value = mock_db
-        client = TestClient(test_app)
-        response = client.get("/stats")
+        test_app.dependency_overrides[get_session] = mock_get_session
+        try:
+            client = TestClient(test_app)
+            response = client.get("/stats")
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total_documents"] == 10
-        assert data["total_chunks"] == 100
-        assert data["collection_name"] == "test_collection"
-        assert data["documents_by_language"]["python"] == 50
-        assert data["documents_by_language"]["typescript"] == 30
-        assert data["documents_by_language"]["java"] == 20
-        assert data["documents_by_difficulty"]["beginner"] == 40
-        assert data["documents_by_difficulty"]["intermediate"] == 35
-        assert data["documents_by_difficulty"]["advanced"] == 25
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_documents"] == 10
+            assert data["total_chunks"] == 100
+            assert data["collection_name"] == "test_collection"
+            assert data["documents_by_language"]["python"] == 50
+            assert data["documents_by_language"]["typescript"] == 30
+            assert data["documents_by_language"]["java"] == 20
+            assert data["documents_by_difficulty"]["beginner"] == 40
+            assert data["documents_by_difficulty"]["intermediate"] == 35
+            assert data["documents_by_difficulty"]["advanced"] == 25
         finally:
             test_app.dependency_overrides.pop(get_session, None)
 
