@@ -57,6 +57,7 @@ def mock_user():
 @pytest.fixture(autouse=True)
 def override_auth_dependency(mock_user):
     """Override authentication dependency for all tests."""
+
     async def mock_get_current_active_user():
         return mock_user
 
