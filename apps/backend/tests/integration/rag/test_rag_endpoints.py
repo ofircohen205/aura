@@ -29,6 +29,7 @@ import conf  # noqa: F401, E402
 # Import the API v1 RAG app
 from api.dependencies import get_current_active_user  # noqa: E402
 from api.v1.rag.endpoints import create_rag_app  # noqa: E402
+from db.database import get_session  # noqa: E402
 from db.models.user import User  # noqa: E402
 
 # Create a test app using the API v1 RAG app
@@ -169,8 +170,8 @@ async def test_query_rag_disabled():
 
         assert response.status_code == 503
         data = response.json()
-        assert "detail" in data
-        assert "not enabled" in data["detail"].lower()
+        assert "error" in data
+        assert "not enabled" in data["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -181,7 +182,7 @@ async def test_query_rag_invalid_top_k():
 
         # Test top_k too high
         response = client.post(
-            "/rag/query",
+            "/query",
             json={
                 "query": "Test query",
                 "top_k": 100,  # Max is 50
@@ -191,7 +192,7 @@ async def test_query_rag_invalid_top_k():
 
         # Test top_k too low
         response = client.post(
-            "/rag/query",
+            "/query",
             json={
                 "query": "Test query",
                 "top_k": 0,  # Min is 1
@@ -232,8 +233,8 @@ async def test_query_rag_service_error(mock_rag_service):
 
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
-        assert "failed" in data["detail"].lower()
+        assert "error" in data
+        assert "failed" in data["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -297,6 +298,8 @@ async def test_get_rag_stats_success():
         assert data["documents_by_difficulty"]["beginner"] == 40
         assert data["documents_by_difficulty"]["intermediate"] == 35
         assert data["documents_by_difficulty"]["advanced"] == 25
+        finally:
+            test_app.dependency_overrides.pop(get_session, None)
 
 
 @pytest.mark.asyncio
@@ -308,14 +311,17 @@ async def test_get_rag_stats_no_collection():
 
     mock_db.execute.return_value = mock_result
 
+    async def mock_get_session():
+        yield mock_db
+
     with (
         patch("api.v1.rag.endpoints.RAG_ENABLED", True),
-        patch("api.v1.rag.endpoints.SessionDep") as mock_session_dep,
         patch("api.v1.rag.endpoints.PGVECTOR_COLLECTION", "nonexistent"),
     ):
-        mock_session_dep.return_value = mock_db
-        client = TestClient(test_app)
-        response = client.get("/stats")
+        test_app.dependency_overrides[get_session] = mock_get_session
+        try:
+            client = TestClient(test_app)
+            response = client.get("/stats")
 
         assert response.status_code == 200
         data = response.json()
@@ -324,6 +330,8 @@ async def test_get_rag_stats_no_collection():
         assert data["collection_name"] == "nonexistent"
         assert data["documents_by_language"] == {}
         assert data["documents_by_difficulty"] == {}
+        finally:
+            test_app.dependency_overrides.pop(get_session, None)
 
 
 @pytest.mark.asyncio
@@ -335,8 +343,8 @@ async def test_get_rag_stats_disabled():
 
         assert response.status_code == 503
         data = response.json()
-        assert "detail" in data
-        assert "not enabled" in data["detail"].lower()
+        assert "error" in data
+        assert "not enabled" in data["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -345,18 +353,21 @@ async def test_get_rag_stats_database_error():
     mock_db = MagicMock()
     mock_db.execute.side_effect = Exception("Database error")
 
-    with (
-        patch("api.v1.rag.endpoints.RAG_ENABLED", True),
-        patch("api.v1.rag.endpoints.SessionDep") as mock_session_dep,
-    ):
-        mock_session_dep.return_value = mock_db
-        client = TestClient(test_app)
-        response = client.get("/stats")
+    async def mock_get_session():
+        yield mock_db
 
-        assert response.status_code == 500
-        data = response.json()
-        assert "detail" in data
-        assert "failed" in data["detail"].lower()
+    with patch("api.v1.rag.endpoints.RAG_ENABLED", True):
+        test_app.dependency_overrides[get_session] = mock_get_session
+        try:
+            client = TestClient(test_app)
+            response = client.get("/stats")
+
+            assert response.status_code == 500
+            data = response.json()
+            assert "error" in data
+            assert "failed" in data["error"]["message"].lower()
+        finally:
+            test_app.dependency_overrides.pop(get_session, None)
 
 
 @pytest.mark.asyncio
