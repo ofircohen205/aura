@@ -158,9 +158,11 @@ class TestAuthServiceTokenRefresh:
         self, auth_service: AuthService, mock_db_session: AsyncMock, mock_redis_client: MagicMock
     ):
         """Test token refresh with non-existent token."""
-        with patch("services.auth.service.get_redis_client", return_value=mock_redis_client):
-            mock_redis_client.get = AsyncMock(return_value=None)
+        mock_manager = MagicMock()
+        mock_manager.get_client = AsyncMock(return_value=mock_redis_client)
+        mock_redis_client.get = AsyncMock(return_value=None)
 
+        with patch("services.auth.service.get_redis_client_manager", return_value=mock_manager):
             with pytest.raises(RefreshTokenNotFoundError):
                 await auth_service.refresh_access_token(
                     session=mock_db_session,
