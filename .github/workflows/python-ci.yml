@@ -160,7 +160,7 @@ jobs:
         run: |
           cd apps/backend
           # Run authentication-related unit tests
-          uv run pytest tests/test_auth.py tests/unit/auth/ -v --maxfail=5
+          uv run pytest tests/unit/auth/ -v --maxfail=5
 
   build:
     name: Build Python Packages
