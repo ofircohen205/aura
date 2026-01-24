@@ -270,13 +270,15 @@ async def test_get_rag_stats_success():
         ("advanced", 25),
     ]
 
-    mock_db.execute.side_effect = [
-        mock_result,  # collection query
-        mock_count_result,  # chunks count
-        mock_docs_result,  # documents count
-        mock_lang_result,  # language breakdown
-        mock_diff_result,  # difficulty breakdown
-    ]
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            mock_result,  # collection query
+            mock_count_result,  # chunks count
+            mock_docs_result,  # documents count
+            mock_lang_result,  # language breakdown
+            mock_diff_result,  # difficulty breakdown
+        ]
+    )
 
     async def mock_get_session():
         yield mock_db
@@ -312,7 +314,7 @@ async def test_get_rag_stats_no_collection():
     mock_result = MagicMock()
     mock_result.fetchone.return_value = None  # No collection found
 
-    mock_db.execute.return_value = mock_result
+    mock_db.execute = AsyncMock(return_value=mock_result)
 
     async def mock_get_session():
         yield mock_db
@@ -443,13 +445,15 @@ async def test_get_rag_stats_empty_breakdowns():
     mock_diff_result = MagicMock()
     mock_diff_result.fetchall.return_value = []
 
-    mock_db.execute.side_effect = [
-        mock_collection_result,
-        mock_count_result,
-        mock_docs_result,
-        mock_lang_result,
-        mock_diff_result,
-    ]
+    mock_db.execute = AsyncMock(
+        side_effect=[
+            mock_collection_result,
+            mock_count_result,
+            mock_docs_result,
+            mock_lang_result,
+            mock_diff_result,
+        ]
+    )
 
     with (
         patch("api.v1.rag.endpoints.RAG_ENABLED", True),

@@ -45,7 +45,7 @@ async def test_trigger_struggle_workflow_simple():
 
         client = TestClient(test_app)
         response = client.post(
-            "/workflows/struggle",
+            "/struggle",
             json={"edit_frequency": 20.0, "error_logs": ["Error 1"], "history": []},
         )
         assert response.status_code == 200
@@ -67,7 +67,7 @@ async def test_trigger_struggle_workflow_not_struggling_simple():
 
         client = TestClient(test_app)
         response = client.post(
-            "/workflows/struggle",
+            "/struggle",
             json={"edit_frequency": 5.0, "error_logs": [], "history": []},
         )
         assert response.status_code == 200
@@ -89,7 +89,7 @@ async def test_trigger_audit_workflow_with_violations_simple():
 
         client = TestClient(test_app)
         response = client.post(
-            "/workflows/audit",
+            "/audit",
             json={
                 "diff_content": """--- a/src/file.py
 +++ b/src/file.py
@@ -119,7 +119,7 @@ async def test_trigger_audit_workflow_clean_code_simple():
 
         client = TestClient(test_app)
         response = client.post(
-            "/workflows/audit", json={"diff_content": "def foo():\n    return 'clean code'"}
+            "/audit", json={"diff_content": "def foo():\n    return 'clean code'"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -140,7 +140,7 @@ async def test_trigger_struggle_workflow_invalid_input():
 
         client = TestClient(test_app)
         # Missing required field 'edit_frequency'
-        response = client.post("/workflows/struggle", json={"error_logs": ["Error 1"]})
+        response = client.post("/struggle", json={"error_logs": ["Error 1"]})
         assert response.status_code == 422  # Validation error
 
 
@@ -153,7 +153,7 @@ async def test_trigger_struggle_workflow_negative_frequency():
 
         client = TestClient(test_app)
         response = client.post(
-            "/workflows/struggle",
+            "/struggle",
             json={"edit_frequency": -5.0, "error_logs": [], "history": []},
         )
         # Should be rejected by Pydantic validation (edit_frequency >= 0)
@@ -169,7 +169,7 @@ async def test_trigger_audit_workflow_empty_diff():
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
-        response = client.post("/workflows/audit", json={"diff_content": ""})
+        response = client.post("/audit", json={"diff_content": ""})
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "completed"
