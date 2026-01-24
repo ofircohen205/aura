@@ -1,7 +1,9 @@
 """Audit API Endpoints."""
 
-from fastapi import APIRouter, Depends, FastAPI, Query, status
+from fastapi import APIRouter, Depends, FastAPI, Query, Request, status
+from loguru import logger
 
+from api.logging import get_log_context, log_operation
 from api.v1.audit.exceptions import register_exception_handlers
 from api.v1.audit.schemas import (
     AuditResponse,
@@ -24,6 +26,7 @@ router = APIRouter(tags=["audit"])
     },
 )
 async def list_audits(
+    request: Request,
     pagination: PaginationParams = Depends(),  # type: ignore[misc]
 ) -> PaginatedResponse[AuditResponse]:
     """
@@ -32,6 +35,12 @@ async def list_audits(
     NOTE: This is a placeholder implementation. Full audit listing requires
     database schema changes to track audit history. Currently returns empty list.
     """
+    log_context = get_log_context(request, page=pagination.page, page_size=pagination.page_size)
+    logger.debug(
+        "Listing audits (placeholder implementation)",
+        extra=log_context,
+    )
+
     # TODO: Implement full audit listing from database
     # For now, return empty paginated response
     return PaginatedResponse.create(
@@ -56,6 +65,7 @@ async def list_audits(
 )
 async def trigger_audit(
     request: AuditTriggerRequest,
+    http_request: Request,
 ) -> AuditResponse:
     """
     Trigger a code audit for a repository.
@@ -66,17 +76,29 @@ async def trigger_audit(
     import uuid
     from datetime import datetime
 
-    result = await audit_service.trigger_audit(repo_path=request.repo_path)
-    # Add ID and timestamp for consistency with list endpoint
-    audit_id = str(uuid.uuid4())
-    return AuditResponse(
-        id=audit_id,
-        status=result["status"],
-        repo=result["repo"],
-        message=result["message"],
-        created_at=datetime.utcnow().isoformat() + "Z",
-        violations=None,
-    )
+    with log_operation(
+        "trigger_audit",
+        http_request,
+        repo_path=request.repo_path,
+    ) as op_ctx:
+        result = await audit_service.trigger_audit(repo_path=request.repo_path)
+        audit_id = str(uuid.uuid4())
+        op_ctx["audit_id"] = audit_id
+        op_ctx["status"] = result["status"]
+
+        logger.info(
+            "Audit triggered successfully",
+            extra=op_ctx,
+        )
+
+        return AuditResponse(
+            id=audit_id,
+            status=result["status"],
+            repo=result["repo"],
+            message=result["message"],
+            created_at=datetime.now().isoformat() + "Z",
+            violations=None,
+        )
 
 
 @router.get(
@@ -92,6 +114,7 @@ async def trigger_audit(
     },
 )
 async def trigger_audit_get(
+    request: Request,
     repo_path: str = Query(..., description="Path to the repository to audit", min_length=1),
 ) -> AuditResponse:
     """
@@ -103,17 +126,29 @@ async def trigger_audit_get(
     import uuid
     from datetime import datetime
 
-    result = await audit_service.trigger_audit(repo_path=repo_path)
-    # Add ID and timestamp for consistency with list endpoint
-    audit_id = str(uuid.uuid4())
-    return AuditResponse(
-        id=audit_id,
-        status=result["status"],
-        repo=result["repo"],
-        message=result["message"],
-        created_at=datetime.utcnow().isoformat() + "Z",
-        violations=None,
-    )
+    with log_operation(
+        "trigger_audit_get",
+        request,
+        repo_path=repo_path,
+    ) as op_ctx:
+        result = await audit_service.trigger_audit(repo_path=repo_path)
+        audit_id = str(uuid.uuid4())
+        op_ctx["audit_id"] = audit_id
+        op_ctx["status"] = result["status"]
+
+        logger.info(
+            "Audit triggered successfully (GET)",
+            extra=op_ctx,
+        )
+
+        return AuditResponse(
+            id=audit_id,
+            status=result["status"],
+            repo=result["repo"],
+            message=result["message"],
+            created_at=datetime.now().isoformat() + "Z",
+            violations=None,
+        )
 
 
 @router.get(
@@ -127,16 +162,29 @@ async def trigger_audit_get(
         503: {"description": "Database connection unavailable"},
     },
 )
-async def get_audit(audit_id: str) -> AuditResponse:
+async def get_audit(
+    audit_id: str,
+    request: Request,
+) -> AuditResponse:
     """
     Retrieve audit by ID.
 
     NOTE: This is a placeholder implementation. Full audit retrieval requires
     database schema changes to track audit history.
     """
-    # TODO: Implement full audit retrieval from database
-    from core.exceptions import NotFoundError
+    log_context = get_log_context(request, audit_id=audit_id)
+    logger.debug(
+        "Getting audit (placeholder implementation)",
+        extra=log_context,
+    )
 
+    # TODO: Implement full audit retrieval from database
+    from api.exceptions import NotFoundError
+
+    logger.warning(
+        "Audit retrieval attempted but not implemented",
+        extra=log_context,
+    )
     raise NotFoundError(f"Audit {audit_id} not found. Audit storage not yet implemented.")
 
 

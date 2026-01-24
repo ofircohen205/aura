@@ -8,7 +8,7 @@ This is a polyglot monorepo with:
 - **Backend**: FastAPI (Python) in `apps/backend/`
 - **Frontend**: Next.js (TypeScript) in `apps/web-dashboard/`
 - **Clients**: VSCode extension, CLI, GitHub app
-- **Libraries**: Shared Python (`libs/core-py/`) and TypeScript (`libs/shared-ts/`) code
+- **Libraries**: Shared Python (`libs/agentic-py/`) and TypeScript (`libs/shared-ts/`) code
 
 ## Default Code Review
 
@@ -17,7 +17,7 @@ When reviewing code, act as `@ai-coding-roles/roles/core-development/senior-soft
 ## Role-Based Guidance by Context
 
 ### Backend Development (Python/FastAPI)
-For files in `apps/backend/`, `libs/core-py/`, or Python CLI:
+For files in `apps/backend/`, `libs/agentic-py/`, or Python CLI:
 - Primary: `@ai-coding-roles/roles/specialized-engineering/backend-engineer.md`
 - API Design: `@ai-coding-roles/roles/architecture-design/api-architect.md`
 - Security: `@ai-coding-roles/roles/quality-security/security-engineer.md`

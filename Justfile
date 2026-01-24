@@ -98,14 +98,14 @@ branch-linear ISSUE_ID DESCRIPTION:
 test:
     @echo "Running all tests in Docker..."
     docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
-    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd libs/agentic-py && uv run pytest tests/ -v" || echo "No tests in agentic-py"
     docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd apps/web-dashboard && npm test"
 
 # Run Python tests in Docker
 test-py:
     @echo "Running Python tests in Docker..."
     docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd apps/backend && uv run pytest tests/ -v"
-    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd libs/core-py && uv run pytest tests/ -v" || echo "No tests in core-py"
+    docker compose -f docker/docker-compose.dev.yml -p aura-dev exec -T dev-tools bash -c "cd libs/agentic-py && uv run pytest tests/ -v" || echo "No tests in agentic-py"
 
 # Run TypeScript tests in Docker
 test-ts:
@@ -123,7 +123,7 @@ test-local:
 test-py-local:
     @echo "Running Python unit tests locally..."
     cd apps/backend && uv run pytest tests/ -v -m "not integration and not e2e"
-    cd libs/core-py && uv run pytest tests/ -v || echo "No tests in core-py"
+    cd libs/agentic-py && uv run pytest tests/ -v || echo "No tests in agentic-py"
 
 # Run integration/e2e tests against Docker database
 # Requires Docker services to be running (use: just dev-detached)
@@ -139,7 +139,7 @@ test-py-local-all:
     @echo "Note: Requires PostgreSQL (aura_db) and Redis to be running locally"
     @echo "Default connection: postgresql://aura:aura@localhost:5432/aura_db"
     cd apps/backend && uv run pytest tests/ -v
-    cd libs/core-py && uv run pytest tests/ -v || echo "No tests in core-py"
+    cd libs/agentic-py && uv run pytest tests/ -v || echo "No tests in agentic-py"
 
 # Run TypeScript tests locally (skips if no test script)
 test-ts-local:
@@ -159,8 +159,8 @@ lint:
 # Run Python linting in Docker
 lint-py:
     @echo "Linting Python code in Docker..."
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff check apps/backend libs/core-py clients/cli"
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run mypy apps/backend libs/core-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff check apps/backend libs/agentic-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run mypy apps/backend libs/agentic-py clients/cli"
 
 # Run TypeScript linting in Docker
 lint-ts:
@@ -170,8 +170,8 @@ lint-ts:
 # Auto-fix linting issues in Docker
 lint-fix:
     @echo "Fixing linting issues in Docker..."
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff check --fix apps/backend libs/core-py clients/cli"
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff format apps/backend libs/core-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff check --fix apps/backend libs/agentic-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run ruff format apps/backend libs/agentic-py clients/cli"
     docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm run lint:fix"
     docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm run format"
 
@@ -252,7 +252,7 @@ code-review:
 # Run security checks in Docker
 security-check:
     @echo "Running security checks in Docker..."
-    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run bandit -r apps/backend libs/core-py clients/cli"
+    docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "uv run bandit -r apps/backend libs/agentic-py clients/cli"
     docker compose -f docker/docker-compose.dev.yml exec -T dev-tools bash -c "cd apps/web-dashboard && npm audit"
 
 # =============================================================================
@@ -286,109 +286,3 @@ pull-main:
     git checkout main
     git pull origin main
     git checkout -
-
-# =============================================================================
-# Kubernetes Development Environment
-# =============================================================================
-
-# Build Docker images for Kubernetes
-k8s-build:
-    @echo "Building Docker images for Kubernetes..."
-    @bash k8s/scripts/build-images.sh --dev --prod
-
-# Build development images only
-k8s-build-dev:
-    @echo "Building development images..."
-    @bash k8s/scripts/build-images.sh --dev
-
-# Build production images only
-k8s-build-prod:
-    @echo "Building production images..."
-    @bash k8s/scripts/build-images.sh --prod
-
-# Build and load images into kind
-k8s-build-kind CLUSTER="aura-dev" TAG="dev":
-    @echo "Building and loading images into kind cluster: {{CLUSTER}}"
-    @bash k8s/scripts/build-images.sh --dev --tag {{TAG}}
-    @bash k8s/scripts/load-images-kind.sh {{CLUSTER}} {{TAG}}
-
-# Create kind cluster
-k8s-cluster-create CLUSTER="aura-dev":
-    @echo "Creating kind cluster: {{CLUSTER}}"
-    @bash k8s/scripts/setup-kind.sh {{CLUSTER}}
-
-# Delete kind cluster
-k8s-cluster-delete CLUSTER="aura-dev":
-    @echo "Deleting kind cluster: {{CLUSTER}}"
-    kind delete cluster --name {{CLUSTER}} || echo "Cluster {{CLUSTER}} not found"
-
-# Deploy to Kubernetes
-k8s-deploy ENV="dev":
-    @echo "Deploying to Kubernetes environment: {{ENV}}"
-    @bash k8s/scripts/deploy.sh {{ENV}}
-
-# Full workflow: build, load, deploy
-k8s-dev CLUSTER="aura-dev" TAG="dev":
-    @echo "Complete Kubernetes development workflow..."
-    @just k8s-build-kind {{CLUSTER}} {{TAG}}
-    @just k8s-deploy dev
-
-# Push images to registry
-k8s-push TAG="latest" OWNER="ofircohen205":
-    @echo "Pushing images to GitHub Container Registry..."
-    @bash k8s/scripts/push-images.sh --tag {{TAG}} --owner {{OWNER}}
-
-# Setup complete development environment
-k8s-dev-setup CLUSTER="aura-dev":
-    @echo "Setting up complete Kubernetes development environment..."
-    @bash k8s/scripts/dev-setup.sh {{CLUSTER}}
-
-# Clean up development environment
-k8s-dev-clean CLUSTER="aura-dev":
-    @echo "Cleaning up Kubernetes development environment..."
-    @bash k8s/scripts/dev-clean.sh {{CLUSTER}}
-
-# Deploy monitoring stack (Loki, Prometheus, Grafana, AlertManager)
-k8s-monitoring-setup:
-    @echo "Deploying monitoring stack..."
-    @bash k8s/scripts/setup-monitoring.sh
-
-# Rollback deployment
-k8s-rollback ENV="production" DEPLOYMENT="backend":
-    @echo "Rolling back {{DEPLOYMENT}} in {{ENV}}..."
-    @bash k8s/scripts/rollback.sh {{ENV}} {{DEPLOYMENT}}
-
-# View pod status
-k8s-status NAMESPACE="" SERVICE="":
-    @bash k8s/scripts/pod-status.sh {{NAMESPACE}} {{SERVICE}}
-
-# Run health checks for an environment
-k8s-health-check ENV="dev" NAMESPACE="" TIMEOUT="30" RETRIES="5":
-    @echo "Running health checks for {{ENV}} environment..."
-    @if [ -z "{{NAMESPACE}}" ]; then \
-        bash k8s/scripts/health-check.sh {{ENV}} "" {{TIMEOUT}} {{RETRIES}}; \
-    else \
-        bash k8s/scripts/health-check.sh {{ENV}} {{NAMESPACE}} {{TIMEOUT}} {{RETRIES}}; \
-    fi
-
-# Skaffold: Start auto-updating development environment
-k8s-skaffold-dev:
-    @echo "Starting Skaffold for auto-updating Kubernetes development..."
-    @echo "This will watch for code changes and automatically rebuild/redeploy"
-    @skaffold dev --profile dev
-
-# Skaffold: Run once (build and deploy, then exit)
-k8s-skaffold-run:
-    @echo "Running Skaffold once (build and deploy)..."
-    @skaffold run --profile dev
-
-# Skaffold: Watch for changes and auto-update
-k8s-skaffold-watch:
-    @echo "Watching for changes with Skaffold..."
-    @skaffold dev --profile dev --watch-poll
-
-# Watch for code changes and auto-rebuild/redeploy (alternative to Skaffold)
-k8s-watch ENV="dev" SERVICE="all":
-    @echo "Watching for code changes and auto-updating Kubernetes..."
-    @echo "Environment: {{ENV}}, Service: {{SERVICE}}"
-    @bash k8s/scripts/watch-and-redeploy.sh {{ENV}} {{SERVICE}}

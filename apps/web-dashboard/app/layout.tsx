@@ -6,6 +6,9 @@ import { ToastProvider } from "@/components/ToastProvider";
 export const metadata: Metadata = {
   title: "Aura Dashboard",
   description: "AI-powered code analysis and learning platform",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

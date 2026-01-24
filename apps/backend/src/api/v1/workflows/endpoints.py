@@ -2,8 +2,11 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, FastAPI, status
+from fastapi import APIRouter, Depends, FastAPI, Request, status
+from loguru import logger
 
+from api.exceptions import ValidationError
+from api.logging import get_log_context, log_operation
 from api.v1.common.schemas import PaginatedResponse, PaginationParams
 from api.v1.workflows.exceptions import register_exception_handlers
 from api.v1.workflows.schemas import (
@@ -11,7 +14,6 @@ from api.v1.workflows.schemas import (
     StruggleInput,
     WorkflowResponse,
 )
-from core.exceptions import ValidationError
 from services.workflows.service import workflow_service
 
 router = APIRouter(tags=["workflows"])
@@ -30,19 +32,43 @@ router = APIRouter(tags=["workflows"])
         503: {"description": "Database connection unavailable"},
     },
 )
-async def trigger_struggle_workflow(inp: StruggleInput) -> WorkflowResponse:
+async def trigger_struggle_workflow(
+    inp: StruggleInput,
+    request: Request,
+) -> WorkflowResponse:
     """
     Trigger the struggle detection workflow.
 
     This endpoint analyzes edit frequency and error patterns to determine
     if a user is struggling and generates appropriate lesson recommendations.
     """
-    result = await workflow_service.trigger_struggle_workflow(
+    with log_operation(
+        "trigger_struggle_workflow",
+        request,
         edit_frequency=inp.edit_frequency,
-        error_logs=inp.error_logs,
-        history=inp.history,
-    )
-    return WorkflowResponse(**result)
+        error_logs_count=len(inp.error_logs),
+        history_count=len(inp.history) if inp.history else 0,
+    ) as op_ctx:
+        result = await workflow_service.trigger_struggle_workflow(
+            edit_frequency=inp.edit_frequency,
+            error_logs=inp.error_logs,
+            history=inp.history,
+        )
+
+        op_ctx["thread_id"] = result.get("thread_id")
+        op_ctx["status"] = result.get("status")
+        is_struggling = result.get("state", {}).get("is_struggling", False)
+        op_ctx["is_struggling"] = is_struggling
+        op_ctx["has_recommendation"] = (
+            result.get("state", {}).get("lesson_recommendation") is not None
+        )
+
+        logger.info(
+            "Struggle workflow triggered successfully",
+            extra=op_ctx,
+        )
+
+        return WorkflowResponse(**result)
 
 
 @router.post(
@@ -59,18 +85,38 @@ async def trigger_struggle_workflow(inp: StruggleInput) -> WorkflowResponse:
         503: {"description": "Database connection unavailable"},
     },
 )
-async def trigger_audit_workflow(inp: AuditInput) -> WorkflowResponse:
+async def trigger_audit_workflow(
+    inp: AuditInput,
+    request: Request,
+) -> WorkflowResponse:
     """
     Trigger the code audit workflow.
 
     This endpoint analyzes code diffs for violations against coding standards
     and returns a pass/fail status with detailed violation information.
     """
-    result = await workflow_service.trigger_audit_workflow(
-        diff_content=inp.diff_content,
-        violations=inp.violations,
-    )
-    return WorkflowResponse(**result)
+    with log_operation(
+        "trigger_audit_workflow",
+        request,
+        diff_length=len(inp.diff_content),
+        pre_existing_violations_count=len(inp.violations) if inp.violations else 0,
+    ) as op_ctx:
+        result = await workflow_service.trigger_audit_workflow(
+            diff_content=inp.diff_content,
+            violations=inp.violations,
+        )
+
+        op_ctx["thread_id"] = result.get("thread_id")
+        op_ctx["status"] = result.get("status")
+        violation_count = len(result.get("state", {}).get("violations", []))
+        op_ctx["violation_count"] = violation_count
+
+        logger.info(
+            "Audit workflow triggered successfully",
+            extra=op_ctx,
+        )
+
+        return WorkflowResponse(**result)
 
 
 @router.get(
@@ -84,6 +130,7 @@ async def trigger_audit_workflow(inp: AuditInput) -> WorkflowResponse:
     },
 )
 async def list_workflows(
+    request: Request,
     pagination: PaginationParams = Depends(),  # type: ignore[misc]
 ) -> PaginatedResponse[WorkflowResponse]:
     """
@@ -92,6 +139,12 @@ async def list_workflows(
     NOTE: This is a placeholder implementation. Full workflow listing requires
     database schema changes to track workflow metadata. Currently returns empty list.
     """
+    log_context = get_log_context(request, page=pagination.page, page_size=pagination.page_size)
+    logger.debug(
+        "Listing workflows (placeholder implementation)",
+        extra=log_context,
+    )
+
     # TODO: Implement full workflow listing from checkpointer or database
     # For now, return empty paginated response
     return PaginatedResponse.create(
@@ -113,21 +166,42 @@ async def list_workflows(
         503: {"description": "Database connection unavailable"},
     },
 )
-async def get_workflow_state(thread_id: str) -> WorkflowResponse:
+async def get_workflow_state(
+    thread_id: str,
+    request: Request,
+) -> WorkflowResponse:
     """
     Retrieve workflow state by thread ID.
 
     This endpoint allows querying the persisted state of a workflow execution.
     Useful for checking status of long-running workflows or retrieving results.
     """
-    # Validate UUID format
-    try:
-        UUID(thread_id)
-    except ValueError as e:
-        raise ValidationError(f"Invalid thread_id format: {thread_id}") from e
+    with log_operation(
+        "get_workflow_state",
+        request,
+        thread_id=thread_id,
+    ) as op_ctx:
+        try:
+            UUID(thread_id)
+        except ValueError as e:
+            op_ctx["error"] = f"Invalid thread_id format: {thread_id}"
+            logger.warning(
+                "Invalid thread_id format",
+                extra=op_ctx,
+            )
+            raise ValidationError(f"Invalid thread_id format: {thread_id}") from e
 
-    result = await workflow_service.get_workflow_state(thread_id=thread_id)
-    return WorkflowResponse(**result)
+        result = await workflow_service.get_workflow_state(thread_id=thread_id)
+
+        op_ctx["status"] = result.get("status")
+        op_ctx["workflow_type"] = result.get("type")
+
+        logger.info(
+            "Workflow state retrieved successfully",
+            extra=op_ctx,
+        )
+
+        return WorkflowResponse(**result)
 
 
 def create_workflows_app() -> FastAPI:

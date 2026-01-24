@@ -4,7 +4,7 @@ Workflow Service Exceptions
 Service-specific exceptions for workflow operations.
 """
 
-from core.exceptions import InternalServerError, NotFoundError, ServiceUnavailableError
+from api.exceptions import InternalServerError, NotFoundError, ServiceUnavailableError
 
 
 class WorkflowNotFoundError(NotFoundError):

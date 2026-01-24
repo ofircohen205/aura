@@ -8,7 +8,7 @@ dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["apps/backend", "clients/cli", "libs/core-py"]
+members = ["apps/backend", "clients/cli", "libs/agentic-py"]
 
 [tool.uv.sources]
 aura-cli = { workspace = true, editable = true }

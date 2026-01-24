@@ -8,7 +8,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 # Copy configuration files
 COPY pyproject.toml uv.lock ./
 COPY apps/backend/pyproject.toml apps/backend/
-COPY libs/core-py/pyproject.toml libs/core-py/
+COPY libs/agentic-py/pyproject.toml libs/agentic-py/
 COPY clients/cli/pyproject.toml clients/cli/
 
 # Copy libs and apps source (needed for editable install in workspace)
@@ -20,7 +20,7 @@ COPY apps/backend apps/backend
 RUN uv sync --frozen --package backend
 
 ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/libs/core-py/src:/app/apps/backend/src:$PYTHONPATH"
+ENV PYTHONPATH="/app/libs/agentic-py/src:/app/apps/backend/src:$PYTHONPATH"
 
 # Development stage
 FROM base as development

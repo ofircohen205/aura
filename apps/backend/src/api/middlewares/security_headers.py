@@ -29,41 +29,33 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         """Process request and add security headers to response."""
         response = await call_next(request)
 
-        # Prevent MIME type sniffing
         response.headers["X-Content-Type-Options"] = "nosniff"
 
-        # Prevent clickjacking
         response.headers["X-Frame-Options"] = "DENY"
 
-        # XSS Protection (legacy, but still useful)
         response.headers["X-XSS-Protection"] = "1; mode=block"
 
-        # Referrer Policy
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
-        # Content Security Policy
-        # Allow Swagger UI resources (cdn.jsdelivr.net) for API documentation
-        # In production, consider disabling Swagger UI or using stricter policies
+        if settings.environment.value == "local":
+            connect_src = "'self' http://localhost:3000 https://cdn.jsdelivr.net"
+        else:
+            connect_src = "'self' https://cdn.jsdelivr.net"
+
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "img-src 'self' data: https:; "
             "font-src 'self' data: https://cdn.jsdelivr.net; "
-            "connect-src 'self' https://cdn.jsdelivr.net"
+            f"connect-src {connect_src}"
         )
 
-        # Permissions Policy (formerly Feature Policy)
         response.headers["Permissions-Policy"] = (
             "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
         )
 
-        # HSTS (HTTP Strict Transport Security) - only in production
-        # Prevents protocol downgrade attacks and cookie hijacking
         if settings.environment.value == "production":
-            # max-age=31536000 = 1 year
-            # includeSubDomains = apply to all subdomains
-            # preload = allow inclusion in HSTS preload lists
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains; preload"
             )

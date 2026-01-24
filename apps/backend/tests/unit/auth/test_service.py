@@ -11,14 +11,16 @@ from uuid import uuid4
 
 import pytest
 
-from db.models.user import User
-from services.auth.exceptions import (
+pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
+
+from db.models.user import User  # noqa: E402
+from services.auth.exceptions import (  # noqa: E402
     InactiveUserError,
     InvalidCredentialsError,
     RefreshTokenNotFoundError,
     UserAlreadyExistsError,
 )
-from services.auth.service import AuthService
+from services.auth.service import AuthService  # noqa: E402
 
 
 @pytest.fixture
@@ -156,11 +158,15 @@ class TestAuthServiceTokenRefresh:
         self, auth_service: AuthService, mock_db_session: AsyncMock, mock_redis_client: MagicMock
     ):
         """Test token refresh with non-existent token."""
-        with patch("services.auth.service.get_redis_client", return_value=mock_redis_client):
-            mock_redis_client.get = AsyncMock(return_value=None)
+        mock_manager = MagicMock()
+        mock_manager.get_client = AsyncMock(return_value=mock_redis_client)
+        mock_redis_client.get = AsyncMock(return_value=None)
 
-            with pytest.raises(RefreshTokenNotFoundError):
-                await auth_service.refresh_access_token(
-                    session=mock_db_session,
-                    refresh_token_str="invalid_token",
-                )
+        with (
+            patch("services.auth.service.get_redis_client_manager", return_value=mock_manager),
+            pytest.raises(RefreshTokenNotFoundError),
+        ):
+            await auth_service.refresh_access_token(
+                session=mock_db_session,
+                refresh_token_str="invalid_token",
+            )

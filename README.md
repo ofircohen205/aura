@@ -22,7 +22,7 @@ Welcome to the **Aura** monorepo! This project follows a polyglot structure mana
   - `cli`: Guardian CLI (Python)
   - `github-app`: Probot App (TypeScript)
 - **libs/**: Shared libraries
-  - `core-py`: Core business logic (Python)
+  - `agentic-py`: Agentic AI library (Python)
     - LangGraph workflows (struggle detection, code audit)
     - Postgres checkpointer for workflow state
   - `shared-ts`: Shared types/schemas (TypeScript)

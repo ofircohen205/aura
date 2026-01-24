@@ -9,18 +9,21 @@ from sqlalchemy import text
 
 # Import conf first to set up paths
 import conf  # noqa: F401
-from api.middlewares import CSRFProtectionMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
-from api.v1.audit.endpoints import create_audit_app
-from api.v1.auth import create_auth_app
-from api.v1.events.endpoints import create_events_app
-from api.v1.workflows.endpoints import create_workflows_app
-from core.config import get_settings
-from core.exceptions import (
+from api.exceptions import (
     BaseApplicationException,
     application_exception_handler,
     generic_exception_handler,
+    http_exception_handler,
 )
-from core.logging import CorrelationIDMiddleware, RequestLoggingMiddleware, setup_logging
+from api.middlewares import CSRFProtectionMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
+from api.middlewares.logging import CorrelationIDMiddleware, RequestLoggingMiddleware
+from api.v1.audit.endpoints import create_audit_app
+from api.v1.auth import create_auth_app
+from api.v1.events.endpoints import create_events_app
+from api.v1.rag import create_rag_app
+from api.v1.workflows.endpoints import create_workflows_app
+from core.config import get_settings
+from core.logging import setup_logging
 from db.database import async_engine, close_db, init_db
 
 # Initialize logging
@@ -35,6 +38,27 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager for startup and shutdown."""
     # Startup
     await init_db()
+
+    # Initialize Redis cache for LLM caching
+    try:
+        from agentic_py.ai.cache import set_redis_cache
+        from agentic_py.config.cache import LLM_CACHE_ENABLED, LLM_CACHE_TTL, REDIS_KEY_PREFIX
+
+        from services.redis import RedisCache
+
+        if LLM_CACHE_ENABLED:
+            redis_cache = RedisCache(
+                redis_client=None,  # Will use get_redis_client_manager internally
+                key_prefix=REDIS_KEY_PREFIX,
+                default_ttl=LLM_CACHE_TTL,
+            )
+            set_redis_cache(redis_cache)
+            logger.info("Redis cache initialized for LLM caching")
+        else:
+            logger.debug("LLM cache is disabled")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Redis cache for LLM: {e}", exc_info=True)
+
     yield
     # Shutdown
     await close_db()
@@ -47,13 +71,8 @@ app = FastAPI(
 )
 
 # Add middleware (order matters - first added is outermost)
+# CORS must be early to handle preflight requests and add headers to error responses
 app.add_middleware(CorrelationIDMiddleware)
-app.add_middleware(SecurityHeadersMiddleware)  # Security headers first
-if settings.csrf_protection_enabled:
-    app.add_middleware(CSRFProtectionMiddleware)  # CSRF protection
-app.add_middleware(RateLimitMiddleware)  # Rate limiting before logging
-app.add_middleware(RequestLoggingMiddleware)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_allow_origins,
@@ -61,8 +80,14 @@ app.add_middleware(
     allow_methods=settings.cors_allow_methods,
     allow_headers=settings.cors_allow_headers,
 )
+app.add_middleware(SecurityHeadersMiddleware)  # Security headers
+if settings.csrf_protection_enabled:
+    app.add_middleware(CSRFProtectionMiddleware)  # CSRF protection
+app.add_middleware(RateLimitMiddleware)  # Rate limiting before logging
+app.add_middleware(RequestLoggingMiddleware)
 
-# Register global exception handlers
+# Register global exception handlers (order matters - more specific first)
+app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(BaseApplicationException, application_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
@@ -71,11 +96,13 @@ auth_app = create_auth_app()
 workflows_app = create_workflows_app()
 events_app = create_events_app()
 audit_app = create_audit_app()
+rag_app = create_rag_app()
 
 app.mount("/api/v1/auth", auth_app)
 app.mount("/api/v1/workflows", workflows_app)
 app.mount("/api/v1/events", events_app)
 app.mount("/api/v1/audit", audit_app)
+app.mount("/api/v1/rag", rag_app)
 
 
 # Prometheus metrics
@@ -118,7 +145,7 @@ async def cache_health_check():
         dict: Cache statistics and health status
     """
     try:
-        from core_py.ml.cache import get_cache_stats
+        from agentic_py.ai.cache import get_cache_stats
 
         stats = await get_cache_stats()
         return {
@@ -143,17 +170,21 @@ async def redis_health_check():
     Returns:
         dict: Redis health status with connection details for each database
     """
-    from services.redis import REDIS_AUTH_DB, REDIS_RATE_LIMIT_DB, test_redis_connection
+    from core.config import get_settings
+    from services.redis import get_redis_client_manager
+
+    settings = get_settings()
+    manager = get_redis_client_manager()
 
     health_status = {
         "status": "ok",
         "redis": {
             "auth_db": {
-                "database": REDIS_AUTH_DB,
+                "database": settings.redis_auth_db,
                 "connected": False,
             },
             "rate_limit_db": {
-                "database": REDIS_RATE_LIMIT_DB,
+                "database": settings.redis_rate_limit_db,
                 "connected": False,
             },
         },
@@ -161,11 +192,11 @@ async def redis_health_check():
 
     # Check auth database connection
     try:
-        auth_connected = await test_redis_connection(REDIS_AUTH_DB)
+        auth_connected = await manager.test_connection(settings.redis_auth_db)
         health_status["redis"]["auth_db"]["connected"] = auth_connected
         if not auth_connected:
             health_status["status"] = "degraded"
-            logger.warning(f"Redis auth database {REDIS_AUTH_DB} is not connected")
+            logger.warning(f"Redis auth database {settings.redis_auth_db} is not connected")
     except Exception as e:
         health_status["status"] = "degraded"
         health_status["redis"]["auth_db"]["error"] = str(e)
@@ -173,11 +204,13 @@ async def redis_health_check():
 
     # Check rate limiting database connection
     try:
-        rate_limit_connected = await test_redis_connection(REDIS_RATE_LIMIT_DB)
+        rate_limit_connected = await manager.test_connection(settings.redis_rate_limit_db)
         health_status["redis"]["rate_limit_db"]["connected"] = rate_limit_connected
         if not rate_limit_connected:
             health_status["status"] = "degraded"
-            logger.warning(f"Redis rate limit database {REDIS_RATE_LIMIT_DB} is not connected")
+            logger.warning(
+                f"Redis rate limit database {settings.redis_rate_limit_db} is not connected"
+            )
     except Exception as e:
         health_status["status"] = "degraded"
         health_status["redis"]["rate_limit_db"]["error"] = str(e)

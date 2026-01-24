@@ -9,8 +9,8 @@ from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
 
+from api.exceptions import ForbiddenError, UnauthorizedError
 from core.config import get_settings
-from core.exceptions import ForbiddenError, UnauthorizedError
 from core.security import verify_jwt_token
 from dao.user import user_dao
 from db.database import AsyncSession, SessionDep

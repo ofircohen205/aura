@@ -20,14 +20,14 @@ from core.security import (
 from dao.user import user_dao
 from db.database import AsyncSession
 from db.models.user import User
-from services.auth.cache import cache_user, invalidate_user_cache
+from services.auth.cache import UserCache, cache_user, invalidate_user_cache
 from services.auth.exceptions import (
     InactiveUserError,
     InvalidCredentialsError,
     RefreshTokenNotFoundError,
     UserAlreadyExistsError,
 )
-from services.redis import get_redis_client
+from services.redis import get_redis_client_manager
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis  # type: ignore[import-untyped]
@@ -60,18 +60,14 @@ class AuthService:
         Raises:
             UserAlreadyExistsError: If user with email or username already exists
         """
-        # Check if user with email already exists
         if await user_dao.exists_by_email(session, email):
             raise UserAlreadyExistsError(email=email)
 
-        # Check if user with username already exists
         if await user_dao.exists_by_username(session, username):
             raise UserAlreadyExistsError(username=username)
 
-        # Hash password
         hashed_password = hash_password(password)
 
-        # Create user
         user = User(
             email=email,
             username=username,
@@ -116,7 +112,6 @@ class AuthService:
             logger.warning("Authentication failed: user not found", extra={"email": email})
             raise InvalidCredentialsError()
 
-        # Verify password
         if not verify_password(password, user.hashed_password):
             logger.warning(
                 "Authentication failed: invalid password",
@@ -124,7 +119,6 @@ class AuthService:
             )
             raise InvalidCredentialsError()
 
-        # Check if user is active
         if not user.is_active:
             logger.warning(
                 "Authentication failed: inactive user",
@@ -132,16 +126,15 @@ class AuthService:
             )
             raise InactiveUserError()
 
-        # Cache user data for future requests
-        user_dict = {
-            "id": str(user.id),
-            "email": user.email,
-            "username": user.username,
-            "is_active": user.is_active,
-            "is_verified": user.is_verified,
-            "roles": user.roles,
-        }
-        await cache_user(user.id, user_dict)
+        user_cache = UserCache(
+            id=str(user.id),
+            email=user.email,
+            username=user.username,
+            is_active=user.is_active,
+            is_verified=user.is_verified,
+            roles=user.roles,
+        )
+        await cache_user(user.id, user_cache)
 
         logger.info("User authenticated", extra={"user_id": str(user.id), "email": email})
 
@@ -157,11 +150,9 @@ class AuthService:
         Returns:
             JWT access token string
         """
-        # Ensure secret key is set
         if not settings.jwt_secret_key:
             raise ValueError("JWT_SECRET_KEY must be set in environment variables")
 
-        # Create token payload
         expires_delta = timedelta(minutes=settings.jwt_access_token_expire_minutes)
         payload = {
             "sub": str(user.id),  # Subject (user ID)
@@ -196,11 +187,10 @@ class AuthService:
         token = create_refresh_token()
         expires_in_seconds = settings.jwt_refresh_token_expire_days * 24 * 60 * 60
 
-        # Store in Redis with TTL
-        redis_client = await get_redis_client()
+        manager = get_redis_client_manager()
+        redis_client = await manager.get_client()
         if redis_client:
             try:
-                # Store token with user ID as value, TTL in seconds
                 redis_key = f"refresh_token:{token}"
                 await redis_client.setex(
                     redis_key,
@@ -212,7 +202,6 @@ class AuthService:
                     extra={"user_id": str(user.id), "token": token[:10] + "..."},
                 )
             except Exception as e:
-                # Check if this is an event loop error (common in tests)
                 error_msg = str(e).lower()
                 if any(
                     phrase in error_msg
@@ -226,8 +215,6 @@ class AuthService:
                     logger.warning(
                         f"Failed to store refresh token in Redis due to event loop issue: {e}"
                     )
-                    # In test environments, this might be acceptable
-                    # but in production, we should raise
                     raise RuntimeError("Redis operation failed due to event loop issue") from e
                 logger.error(f"Failed to store refresh token in Redis: {e}", exc_info=True)
                 raise
@@ -324,21 +311,19 @@ class AuthService:
         Raises:
             RefreshTokenNotFoundError: If refresh token is not found or expired
         """
-        redis_client: Redis[str] | None = await get_redis_client()
+        manager = get_redis_client_manager()
+        redis_client: Redis[str] | None = await manager.get_client()
         if not redis_client:
             logger.error("Redis not available for refresh token validation")
             raise RefreshTokenNotFoundError()
 
         try:
-            # Get user ID from refresh token
             user_id = await self._get_user_id_from_refresh_token(refresh_token_str, redis_client)
 
-            # Validate user exists and is active
             user = await self._validate_user_for_token_refresh(
                 session, user_id, refresh_token_str, redis_client
             )
 
-            # Create new access token
             access_token = await self.create_access_token(user)
 
             logger.info("Access token refreshed", extra={"user_id": str(user.id)})
@@ -361,7 +346,8 @@ class AuthService:
         Args:
             refresh_token_str: Refresh token string to revoke
         """
-        redis_client = await get_redis_client()
+        manager = get_redis_client_manager()
+        redis_client = await manager.get_client()
         if not redis_client:
             logger.warning("Redis not available, cannot revoke refresh token")
             return
@@ -406,14 +392,12 @@ class AuthService:
             UserAlreadyExistsError: If new email or username already exists
         """
         if username and username != user.username:
-            # Check if username is taken
             existing_user = await user_dao.get_by_username(session, username)
             if existing_user and existing_user.id != user.id:
                 raise UserAlreadyExistsError(username=username)
             user.username = username
 
         if email and email != user.email:
-            # Check if email is taken
             existing_user = await user_dao.get_by_email(session, email)
             if existing_user and existing_user.id != user.id:
                 raise UserAlreadyExistsError(email=email)
@@ -422,7 +406,6 @@ class AuthService:
         user.updated_at = datetime.now(UTC)
         user = await user_dao.update(session, user)
 
-        # Invalidate cache after update
         await invalidate_user_cache(user.id)
 
         logger.info("User updated", extra={"user_id": str(user.id)})
@@ -473,11 +456,9 @@ class AuthService:
             This is a placeholder for future permission system implementation.
             Currently checks roles only.
         """
-        # For now, check if user has 'admin' role for admin permissions
         if permission == "admin":
             return "admin" in user.roles
 
-        # Default: all authenticated users have basic permissions
         return True
 
     async def bulk_create_users(
@@ -641,5 +622,4 @@ class AuthService:
         return deleted_count, errors
 
 
-# Global service instance
 auth_service = AuthService()

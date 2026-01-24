@@ -5,7 +5,7 @@ on:
     branches: [main, develop]
     paths:
       - "apps/backend/**"
-      - "libs/core-py/**"
+      - "libs/agentic-py/**"
       - "clients/cli/**"
       - "pyproject.toml"
       - ".github/workflows/python-ci.yml"
@@ -13,7 +13,7 @@ on:
     branches: [main, develop]
     paths:
       - "apps/backend/**"
-      - "libs/core-py/**"
+      - "libs/agentic-py/**"
       - "clients/cli/**"
       - "pyproject.toml"
       - ".github/workflows/python-ci.yml"
@@ -44,15 +44,15 @@ jobs:
 
       - name: Run ruff lint
         run: |
-          uv run ruff check apps/backend libs/core-py clients/cli
+          uv run ruff check apps/backend libs/agentic-py clients/cli
 
       - name: Run ruff format check
         run: |
-          uv run ruff format --check apps/backend libs/core-py clients/cli
+          uv run ruff format --check apps/backend libs/agentic-py clients/cli
 
       - name: Run mypy type checking
         run: |
-          uv run mypy apps/backend libs/core-py clients/cli || true
+          uv run mypy apps/backend libs/agentic-py clients/cli || true
 
   test:
     name: Test Python ${{ matrix.python-version }}
@@ -60,7 +60,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.13"]
-        project: ["backend", "core-py"]
+        project: ["backend", "agentic-py"]
 
     steps:
       - name: Checkout code
@@ -84,8 +84,8 @@ jobs:
             cd apps/backend
             # Run unit tests (excludes integration and e2e)
             uv run pytest tests/ -v -m "not integration and not e2e"
-          elif [ "${{ matrix.project }}" == "core-py" ]; then
-            cd libs/core-py
+          elif [ "${{ matrix.project }}" == "agentic-py" ]; then
+            cd libs/agentic-py
             uv run pytest tests/ -v
           fi
 
@@ -160,7 +160,7 @@ jobs:
         run: |
           cd apps/backend
           # Run authentication-related unit tests
-          uv run pytest tests/test_auth.py tests/unit/auth/ -v --maxfail=5
+          uv run pytest tests/unit/auth/ -v --maxfail=5
 
   build:
     name: Build Python Packages
@@ -186,5 +186,5 @@ jobs:
       - name: Build packages
         run: |
           uv build apps/backend
-          uv build libs/core-py
+          uv build libs/agentic-py
           uv build clients/cli

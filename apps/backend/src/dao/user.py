@@ -4,6 +4,9 @@ User DAO
 Data Access Object for user database operations.
 """
 
+import time
+
+from loguru import logger
 from sqlmodel import select
 
 from dao.base import BaseDAO
@@ -34,9 +37,50 @@ class UserDAO(BaseDAO):
         Returns:
             User object or None if not found
         """
-        stmt = select(User).where(User.email == email)
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
+        start_time = time.time()
+        logger.debug(
+            "Executing database query: get_by_email",
+            extra={
+                "operation": "get_by_email",
+                "model": "User",
+                "email": email,
+            },
+        )
+
+        try:
+            stmt = select(User).where(User.email == email)
+            result = await session.execute(stmt)
+            user = result.scalar_one_or_none()
+
+            duration = time.time() - start_time
+            logger.debug(
+                "Database query completed: get_by_email",
+                extra={
+                    "operation": "get_by_email",
+                    "model": "User",
+                    "email": email,
+                    "found": user is not None,
+                    "user_id": str(user.id) if user else None,
+                    "duration_ms": duration * 1000,
+                },
+            )
+
+            return user
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(
+                "Database query failed: get_by_email",
+                extra={
+                    "operation": "get_by_email",
+                    "model": "User",
+                    "email": email,
+                    "duration_ms": duration * 1000,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                exc_info=True,
+            )
+            raise
 
     async def get_by_username(
         self,
@@ -53,9 +97,50 @@ class UserDAO(BaseDAO):
         Returns:
             User object or None if not found
         """
-        stmt = select(User).where(User.username == username)
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
+        start_time = time.time()
+        logger.debug(
+            "Executing database query: get_by_username",
+            extra={
+                "operation": "get_by_username",
+                "model": "User",
+                "username": username,
+            },
+        )
+
+        try:
+            stmt = select(User).where(User.username == username)
+            result = await session.execute(stmt)
+            user = result.scalar_one_or_none()
+
+            duration = time.time() - start_time
+            logger.debug(
+                "Database query completed: get_by_username",
+                extra={
+                    "operation": "get_by_username",
+                    "model": "User",
+                    "username": username,
+                    "found": user is not None,
+                    "user_id": str(user.id) if user else None,
+                    "duration_ms": duration * 1000,
+                },
+            )
+
+            return user
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(
+                "Database query failed: get_by_username",
+                extra={
+                    "operation": "get_by_username",
+                    "model": "User",
+                    "username": username,
+                    "duration_ms": duration * 1000,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                exc_info=True,
+            )
+            raise
 
     async def exists_by_email(
         self,

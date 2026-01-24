@@ -17,7 +17,7 @@ Refer to `docs/ARCHITECTURE.md` for detailed internal structure of Backend, Fron
 
 - **Python Stack**: Use `uv` for extremely fast dependency management and workspace support.
   - **Workspace Root**: `pyproject.toml` at the root.
-  - **Members**: `backend`, `clients/cli`, `libs/core-py`.
+  - **Members**: `backend`, `clients/cli`, `libs/agentic-py`.
 - **TypeScript Stack**: Use `npm` (or `pnpm`) workspaces.
   - **Workspace Root**: `package.json` at the root.
   - **Members**: `clients/vscode`, `clients/web`, `clients/github-app`, `libs/shared-ts`.
@@ -37,7 +37,7 @@ aura/
 │   ├── cli/              # Guardian CLI (Python)
 │   └── github-app/       # Probot App (TypeScript)
 ├── libs/
-│   ├── core-py/          # Shared Python logic (Audits, Struggle heuristics) - CRITICAL for sharing between CLI & Backend
+│   ├── agentic-py/          # Shared Python logic (Audits, Struggle heuristics) - CRITICAL for sharing between CLI & Backend
 │   └── shared-ts/        # Shared Types/Schemas (if needed)
 ├── docs/                 # Architecture decision records
 └── docker/
@@ -47,7 +47,7 @@ aura/
 
 ### Why this structure?
 
-1.  **Shared Logic**: The "Guardian" CLI and the Backend "Audit" workflow share the _same_ static analysis rules. Using a shared `libs/core-py` library within a `uv` workspace ensures they use identical logic without code duplication.
+1.  **Shared Logic**: The "Guardian" CLI and the Backend "Audit" workflow share the _same_ static analysis rules. Using a shared `libs/agentic-py` library within a `uv` workspace ensures they use identical logic without code duplication.
 2.  **Performance**: `uv` is significantly faster than `poetry` and simplifies CI/CD.
 3.  **Organization**: Separating `apps` (server-side/webapp) from `clients` (user-side tools) can provide mental clarity, though a flat list is also acceptable. Grouping by language (Python vs TS) is an alternative, but functional grouping (`libs` vs deployables) is usually better for scaling.
 
@@ -59,9 +59,9 @@ aura/
 ### Implementation Checklist
 
 - [x] Initialize root with `uv init --workspace`.
-- [x] Create `libs/core-py` package.
-- [x] Initialize `apps/backend` dependent on `libs/core-py`.
-- [x] Initialize `clients/cli` dependent on `libs/core-py`.
+- [x] Create `libs/agentic-py` package.
+- [x] Initialize `apps/backend` dependent on `libs/agentic-py`.
+- [x] Initialize `clients/cli` dependent on `libs/agentic-py`.
 - [x] Initialize `apps/web-dashboard` and other TS projects.
 - [x] Create `docker/` directory.
 - [x] Create `docker/docker-compose.dev.yml` and `docker/docker-compose.prod.yml`.

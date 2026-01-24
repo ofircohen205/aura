@@ -9,19 +9,24 @@ import secrets
 from collections.abc import Callable
 
 from fastapi import HTTPException, Request, Response, status
+from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from core.config import get_settings
 
 settings = get_settings()
 
-# CSRF token cookie name
+
 CSRF_TOKEN_COOKIE = "csrf-token"
-# CSRF token header name
 CSRF_TOKEN_HEADER = "X-CSRF-Token"
 
-# HTTP methods that require CSRF protection (state-changing operations)
 PROTECTED_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+CSRF_EXEMPT_PATHS = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/register",
+    "/api/v1/auth/refresh",
+}
 
 
 class CSRFProtectionMiddleware(BaseHTTPMiddleware):
@@ -34,14 +39,16 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
     3. Server validates that cookie and header tokens match
 
     This pattern works well for stateless APIs and doesn't require server-side storage.
+
+    Authentication endpoints (login, register, refresh) are exempt from CSRF protection
+    because they're called before the user has a session and the CSRF cookie might not
+    be set yet. This is a common and secure pattern.
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request and validate CSRF token for protected methods."""
-        # Skip CSRF check for safe methods (GET, HEAD, OPTIONS)
         if request.method not in PROTECTED_METHODS:
             response = await call_next(request)
-            # Set CSRF token cookie for all responses (if not already set)
             if CSRF_TOKEN_COOKIE not in request.cookies:
                 csrf_token = secrets.token_urlsafe(32)
                 response.set_cookie(
@@ -54,28 +61,57 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
                 )
             return response
 
-        # For protected methods, validate CSRF token
+        if request.url.path in CSRF_EXEMPT_PATHS:
+            response = await call_next(request)
+            if CSRF_TOKEN_COOKIE not in request.cookies:
+                csrf_token = secrets.token_urlsafe(32)
+                response.set_cookie(
+                    CSRF_TOKEN_COOKIE,
+                    csrf_token,
+                    httponly=False,
+                    samesite="strict",
+                    secure=settings.environment.value == "production",
+                    max_age=3600 * 24,
+                )
+            return response
+
         cookie_token = request.cookies.get(CSRF_TOKEN_COOKIE)
         header_token = request.headers.get(CSRF_TOKEN_HEADER)
 
-        # Both cookie and header must be present
         if not cookie_token or not header_token:
+            correlation_id = getattr(request.state, "correlation_id", None)
+            logger.warning(
+                "CSRF token validation failed - token missing",
+                extra={
+                    "correlation_id": correlation_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "has_cookie_token": bool(cookie_token),
+                    "has_header_token": bool(header_token),
+                },
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="CSRF token missing. Please include X-CSRF-Token header.",
             )
 
-        # Tokens must match
         if cookie_token != header_token:
+            correlation_id = getattr(request.state, "correlation_id", None)
+            logger.warning(
+                "CSRF token validation failed - token mismatch",
+                extra={
+                    "correlation_id": correlation_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                },
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="CSRF token mismatch. Token in cookie and header must match.",
             )
 
-        # Process request
         response = await call_next(request)
 
-        # Ensure CSRF token cookie is set in response (refresh if needed)
         if CSRF_TOKEN_COOKIE not in request.cookies:
             csrf_token = secrets.token_urlsafe(32)
             response.set_cookie(

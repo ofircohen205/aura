@@ -16,11 +16,11 @@ These tasks can be executed in parallel after Phase 0.
 
 - [x] **Develop Python CLI** (Senior Software Engineer)
   - _Story_: `role_tasks/senior-software-engineer/stories/develop-python-cli.md`
-  - _Dependencies_: `libs/core-py`
+  - _Dependencies_: `libs/agentic-py`
   - _Goal_: Implement the "Guardian" CLI for local code analysis.
 - [x] **Expose FastAPI Endpoints** (Senior Software Engineer)
   - _Story_: `role_tasks/senior-software-engineer/stories/expose-fastapi-endpoints.md`
-  - _Dependencies_: `libs/core-py`
+  - _Dependencies_: `libs/agentic-py`
   - _Goal_: Create the orchestration layer for the web dashboard.
 
 ### Client Side
@@ -53,4 +53,4 @@ Dependent on Core Implementation.
 ## Next Action Selection
 
 **Recommended Immediate Next Task:** `Develop Python CLI` or `Expose FastAPI Endpoints`.
-These build the foundational logic in `libs/core-py` that other components (VSCode, RAG) will rely on.
+These build the foundational logic in `libs/agentic-py` that other components (VSCode, RAG) will rely on.

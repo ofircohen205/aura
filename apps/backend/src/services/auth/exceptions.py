@@ -4,7 +4,7 @@ Authentication Service Exceptions
 Service-specific exceptions for authentication operations.
 """
 
-from core.exceptions import ConflictError, ForbiddenError, UnauthorizedError, ValidationError
+from api.exceptions import ConflictError, ForbiddenError, UnauthorizedError, ValidationError
 
 
 class InvalidCredentialsError(UnauthorizedError):

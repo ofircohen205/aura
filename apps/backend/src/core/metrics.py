@@ -2,9 +2,193 @@
 Prometheus Metrics
 
 Provides Prometheus metrics for authentication events, rate limiting, and system health.
+Includes a helper class for centralized metrics tracking.
 """
 
-from prometheus_client import Counter, Gauge, Histogram
+from contextlib import contextmanager
+from typing import Any
+
+try:
+    from prometheus_client import Counter, Gauge, Histogram
+
+    METRICS_ENABLED = True
+except ImportError:
+    METRICS_ENABLED = False
+    # Create dummy types for type checking when metrics are disabled
+    Counter = Any  # type: ignore[assignment,misc]
+    Gauge = Any  # type: ignore[assignment,misc]
+    Histogram = Any  # type: ignore[assignment,misc]
+
+
+def is_metrics_enabled() -> bool:
+    """
+    Check if metrics are enabled.
+
+    Returns:
+        True if prometheus_client is available, False otherwise
+    """
+    return METRICS_ENABLED
+
+
+class MetricsHelper:
+    """
+    Helper class for tracking Prometheus metrics.
+
+    All methods check METRICS_ENABLED internally, so callers don't need to.
+    """
+
+    def inc_counter(self, metric: Counter, **labels: str) -> None:
+        """
+        Increment a counter metric.
+
+        Args:
+            metric: Counter metric to increment
+            **labels: Label values for the metric
+        """
+        if not METRICS_ENABLED:
+            return
+
+        if labels:
+            metric.labels(**labels).inc()
+        else:
+            metric.inc()
+
+    def observe_histogram(self, metric: Histogram, value: float, **labels: str) -> None:
+        """
+        Observe a value in a histogram metric.
+
+        Args:
+            metric: Histogram metric to observe
+            value: Value to record
+            **labels: Label values for the metric
+        """
+        if not METRICS_ENABLED:
+            return
+
+        if labels:
+            metric.labels(**labels).observe(value)
+        else:
+            metric.observe(value)
+
+    def set_gauge(self, metric: Gauge, value: float, **labels: str) -> None:
+        """
+        Set a gauge metric value.
+
+        Args:
+            metric: Gauge metric to set
+            value: Value to set
+            **labels: Label values for the metric
+        """
+        if not METRICS_ENABLED:
+            return
+
+        if labels:
+            metric.labels(**labels).set(value)
+        else:
+            metric.set(value)
+
+    @contextmanager
+    def track_operation(
+        self,
+        success_metric: Counter | None = None,
+        failure_metric: Counter | None = None,
+        duration_metric: Histogram | None = None,
+        success_labels: dict[str, str] | None = None,
+        failure_labels: dict[str, str] | None = None,
+        duration_labels: dict[str, str] | None = None,
+    ):
+        """
+        Context manager for tracking operation success/failure and duration.
+
+        Automatically tracks success on normal exit, failure on exception,
+        and duration if duration_metric is provided.
+
+        Args:
+            success_metric: Counter to increment on success
+            failure_metric: Counter to increment on failure
+            duration_metric: Histogram to record duration in seconds
+            success_labels: Labels for success metric
+            failure_labels: Labels for failure metric
+            duration_labels: Labels for duration metric
+
+        Example:
+            ```python
+            with metrics_helper.track_operation(
+                success_metric=auth_requests_total,
+                failure_metric=auth_requests_total,
+                success_labels={"endpoint": "login", "status": "success"},
+                failure_labels={"endpoint": "login", "status": "failure"},
+            ):
+                # operation code
+            ```
+        """
+        import time
+
+        start_time = time.time()
+        success_labels = success_labels or {}
+        failure_labels = failure_labels or {}
+        duration_labels = duration_labels or {}
+
+        try:
+            yield
+            # Success path
+            if success_metric:
+                self.inc_counter(success_metric, **success_labels)
+        except Exception:
+            # Failure path
+            if failure_metric:
+                self.inc_counter(failure_metric, **failure_labels)
+            raise
+        finally:
+            # Duration tracking
+            if duration_metric:
+                duration = time.time() - start_time
+                self.observe_histogram(duration_metric, duration, **duration_labels)
+
+
+# Singleton instance
+metrics_helper = MetricsHelper()
+
+__all__ = [
+    "is_metrics_enabled",
+    "metrics_helper",
+    # Authentication Metrics
+    "auth_requests_total",
+    "auth_token_refreshes_total",
+    "user_registrations_total",
+    "auth_failures_total",
+    # Rate Limiting Metrics
+    "rate_limit_hits_total",
+    "rate_limit_requests_total",
+    # Redis Connection Pool Metrics
+    "redis_connections_active",
+    "redis_connections_idle",
+    "redis_connection_errors_total",
+    # Token Metrics
+    "tokens_issued_total",
+    "tokens_revoked_total",
+    # Request Metrics
+    "http_requests_total",
+    "http_request_duration_seconds",
+    # Database Metrics
+    "database_connections_active",
+    "database_connections_idle",
+    "database_query_duration_seconds",
+    # LangGraph Workflow Metrics
+    "workflow_executions_total",
+    "workflow_duration_seconds",
+    "workflow_failures_total",
+    # Struggle Detection Workflow Metrics
+    "struggle_detections_total",
+    "lesson_recommendations_generated_total",
+    "struggle_workflow_edit_frequency",
+    "struggle_workflow_error_count",
+    # Code Audit Workflow Metrics
+    "audit_executions_total",
+    "audit_violations_detected",
+    "audit_violations_by_type",
+    "audit_files_processed",
+]
 
 # Authentication Metrics
 auth_requests_total = Counter(

@@ -46,10 +46,10 @@ This will be implemented using **LangGraph** to define state machines that can w
 
 - **Automated Tests**:
   - [x] Unit tests for individual nodes (mocks for LLM calls).
-    - ✅ `libs/core-py/tests/test_workflows.py` - 5 unit tests passing
+    - ✅ `libs/agentic-py/tests/test_workflows.py` - 5 unit tests passing
     - ✅ Tests cover: `detect_struggle`, `generate_lesson`, `check_violations`
   - [x] Integration test running the full graph with a mock struggle scenario.
-    - ✅ `libs/core-py/tests/test_workflows_integration.py` - 4 integration tests passing
+    - ✅ `libs/agentic-py/tests/test_workflows_integration.py` - 4 integration tests passing
     - ✅ Tests cover: full struggle workflow (struggling/not struggling), full audit workflow (with/without violations)
   - [x] API integration tests
     - ✅ `apps/backend/tests/test_workflows_api_simple.py` - 4 API tests passing
@@ -73,7 +73,7 @@ All tests can be run with:
 
 ```bash
 # Unit and integration tests
-uv run --directory libs/core-py pytest tests/ -v
+uv run --directory libs/agentic-py pytest tests/ -v
 
 # API tests
 uv run --directory apps/backend pytest tests/test_workflows_api_simple.py -v

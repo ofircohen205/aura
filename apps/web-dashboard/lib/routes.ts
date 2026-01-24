@@ -25,6 +25,7 @@ export const ROUTES = {
     WORKFLOW_DETAIL: (id: string) => composeRoute(BASE_ROUTES.DASHBOARD, "workflows", id),
     AUDITS: composeRoute(BASE_ROUTES.DASHBOARD, "audits"),
     AUDIT_DETAIL: (id: string) => composeRoute(BASE_ROUTES.DASHBOARD, "audits", id),
+    RAG: composeRoute(BASE_ROUTES.DASHBOARD, "rag"),
     PROFILE: composeRoute(BASE_ROUTES.DASHBOARD, "profile"),
     SETTINGS: composeRoute(BASE_ROUTES.DASHBOARD, "settings"),
   },
@@ -45,6 +46,7 @@ export const NAVIGATION_ITEMS: readonly NavigationItem[] = [
   { name: "Dashboard", href: ROUTES.DASHBOARD.ROOT },
   { name: "Workflows", href: ROUTES.DASHBOARD.WORKFLOWS },
   { name: "Audits", href: ROUTES.DASHBOARD.AUDITS },
+  { name: "RAG Explorer", href: ROUTES.DASHBOARD.RAG },
   { name: "Profile", href: ROUTES.DASHBOARD.PROFILE },
   { name: "Settings", href: ROUTES.DASHBOARD.SETTINGS },
 ] as const;

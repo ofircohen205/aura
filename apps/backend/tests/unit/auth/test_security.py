@@ -6,7 +6,11 @@ Tests password hashing, JWT token creation, and other security utilities.
 
 from datetime import timedelta
 
-from core.security import (
+import pytest
+
+pytestmark = pytest.mark.unit
+
+from core.security import (  # noqa: E402
     create_jwt_token,
     create_refresh_token,
     hash_password,
@@ -46,7 +50,7 @@ class TestJWTTokens:
 
     def test_create_jwt_token(self):
         """Test JWT token creation."""
-        secret_key = "test-secret-key"
+        secret_key = "test-secret-key-for-jwt-tokens-minimum-32-chars"
         payload = {"sub": "user123", "email": "test@example.com"}
 
         token = create_jwt_token(
@@ -66,3 +70,45 @@ class TestJWTTokens:
         assert token is not None
         assert isinstance(token, str)
         assert len(token) > 0
+
+    def test_verify_jwt_token(self):
+        """Test JWT token verification."""
+        from core.security import verify_jwt_token
+
+        secret_key = "test-secret-key-for-jwt-tokens-minimum-32-chars"
+        payload = {"sub": "user123", "email": "test@example.com"}
+
+        token = create_jwt_token(
+            payload=payload,
+            secret_key=secret_key,
+            expires_delta=timedelta(minutes=30),
+        )
+
+        decoded = verify_jwt_token(token, secret_key)
+        assert decoded is not None
+        assert decoded["sub"] == "user123"
+        assert decoded["email"] == "test@example.com"
+
+    def test_verify_jwt_token_invalid(self):
+        """Test JWT token verification with invalid token."""
+        from core.security import verify_jwt_token
+
+        secret_key = "test-secret-key-for-jwt-tokens-minimum-32-chars"
+        decoded = verify_jwt_token("invalid_token", secret_key)
+        assert decoded is None
+
+    def test_verify_jwt_token_wrong_secret(self):
+        """Test JWT token verification with wrong secret key."""
+        from core.security import verify_jwt_token
+
+        secret_key = "test-secret-key-for-jwt-tokens-minimum-32-chars"
+        payload = {"sub": "user123"}
+
+        token = create_jwt_token(
+            payload=payload,
+            secret_key=secret_key,
+            expires_delta=timedelta(minutes=30),
+        )
+
+        decoded = verify_jwt_token(token, "wrong_secret_key")
+        assert decoded is None

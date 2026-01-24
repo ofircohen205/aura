@@ -97,7 +97,7 @@ Set the `ENVIRONMENT` variable to select which config file to use.
   - `cli`: Python command-line interface
   - `vscode`: TypeScript VSCode extension
 - `libs/`
-  - `core-py`: Shared Python business logic
+  - `agentic-py`: Shared Python business logic
 
 ## Quick Start
 
@@ -222,7 +222,7 @@ just docker-exec "command here"
 Edit files on your **host machine** using your preferred editor. Changes are automatically reflected in containers via volume mounts:
 
 - `apps/backend/` → `/app/apps/backend` in containers
-- `libs/core-py/` → `/app/libs/core-py` in containers
+- `libs/agentic-py/` → `/app/libs/agentic-py` in containers
 - `apps/web-dashboard/` → `/app/apps/web-dashboard` in containers
 
 Hot reload is enabled for both backend and web dashboard.
@@ -282,16 +282,16 @@ The project uses the following tools for Python code quality:
 just lint-py
 
 # Run ruff linting
-just docker-exec "uv run ruff check apps/backend libs/core-py clients/cli"
+just docker-exec "uv run ruff check apps/backend libs/agentic-py clients/cli"
 
 # Auto-fix linting issues
-just docker-exec "uv run ruff check --fix apps/backend libs/core-py clients/cli"
+just docker-exec "uv run ruff check --fix apps/backend libs/agentic-py clients/cli"
 
 # Run ruff formatting
-just docker-exec "uv run ruff format apps/backend libs/core-py clients/cli"
+just docker-exec "uv run ruff format apps/backend libs/agentic-py clients/cli"
 
 # Run mypy type checking
-just docker-exec "uv run mypy apps/backend libs/core-py clients/cli"
+just docker-exec "uv run mypy apps/backend libs/agentic-py clients/cli"
 ```
 
 ### TypeScript/JavaScript
@@ -385,19 +385,19 @@ The project uses the following tools for Python code quality:
 
 ```bash
 # Run ruff linting
-uv run ruff check apps/backend libs/core-py clients/cli
+uv run ruff check apps/backend libs/agentic-py clients/cli
 
 # Auto-fix linting issues
-uv run ruff check --fix apps/backend libs/core-py clients/cli
+uv run ruff check --fix apps/backend libs/agentic-py clients/cli
 
 # Run ruff formatting
-uv run ruff format apps/backend libs/core-py clients/cli
+uv run ruff format apps/backend libs/agentic-py clients/cli
 
 # Check formatting without making changes
-uv run ruff format --check apps/backend libs/core-py clients/cli
+uv run ruff format --check apps/backend libs/agentic-py clients/cli
 
 # Run mypy type checking
-uv run mypy apps/backend libs/core-py clients/cli
+uv run mypy apps/backend libs/agentic-py clients/cli
 ```
 
 ### TypeScript/JavaScript
@@ -481,7 +481,7 @@ just ci-check-fast
 The CI check script runs:
 
 1. **Python lint and type check**: ruff lint, ruff format check, mypy
-2. **Python tests**: backend and core-py tests
+2. **Python tests**: backend and agentic-py tests
 3. **Python build**: Builds all Python packages
 4. **TypeScript lint and type check**: ESLint and TypeScript type checking
 5. **TypeScript build**: Builds all TypeScript projects
@@ -589,7 +589,7 @@ The backend follows a layered architecture. You must add files in the specific o
        id: UUID = Field(default_factory=uuid4, primary_key=True)
        name: str
        description: str
-       created_at: datetime = Field(default_factory=datetime.utcnow)
+       created_at: datetime = Field(default_factory=datetime.now)
    ```
 
 2. **Create DAO** (`src/dao/example.py`)
@@ -677,10 +677,10 @@ The project uses GitHub Actions for continuous integration. The main CI pipeline
    - Runs type checking with mypy
 
 2. **Python tests**:
-   - Runs tests for backend and core-py
+   - Runs tests for backend and agentic-py
 
 3. **Python build**:
-   - Builds all Python packages (backend, core-py, CLI)
+   - Builds all Python packages (backend, agentic-py, CLI)
 
 4. **TypeScript lint and type check**:
    - Lints TypeScript/JavaScript code with ESLint
