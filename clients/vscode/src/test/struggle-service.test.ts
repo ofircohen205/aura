@@ -1,38 +1,55 @@
 import * as assert from "assert";
-import * as vscode from "vscode";
-import { StruggleService } from "../struggle-service";
-import { BackendClient } from "../backend-client";
+import { StruggleDetector } from "../struggle-detector";
 
-suite("StruggleService Test Suite", () => {
-  vscode.window.showInformationMessage("Start all tests.");
+suite("StruggleDetector Test Suite", () => {
+  const createDetector = (nowMsRef: { value: number }) => {
+    return new StruggleDetector(
+      {
+        windowMs: 5 * 60_000,
+        retryAttemptThreshold: 3,
+        errorCountThreshold: 2,
+        editFrequencyThresholdPerMin: 10,
+        cooldownMs: 0,
+        maxSnippetChars: 300,
+        maxEventsPerFile: 200,
+        maxErrorsPerFile: 20,
+        levenshteinSimilarityThreshold: 0.2,
+        maxComparisonsPerEdit: 10,
+        maxLineDistanceForRetry: 2,
+      },
+      { nowMs: () => nowMsRef.value }
+    );
+  };
 
-  test("Detects struggle on rapid edits", () => {
-    // Mock BackendClient
-    const mockBackend = new BackendClient();
-    let sentEvent: any = null;
-    mockBackend.sendStruggleEvent = async (event: any) => {
-      sentEvent = event;
-    };
+  test("Detects struggle on retry attempts within window", () => {
+    const now = { value: 1_000_000 };
+    const detector = createDetector(now);
+    const fileKey = "file:///tmp/example.ts";
 
-    const service = new StruggleService(mockBackend);
+    detector.recordEdit({ fileKey, snippet: "const x = 1;\n", line: 10 });
+    assert.strictEqual(detector.evaluate(fileKey).shouldTrigger, false);
 
-    // Simulate rapid edits
-    // We need to access private method or trigger 10 times
-    for (let i = 0; i < 15; i++) {
-      // Mock event - type is not important for this simple heuristic
-      service.onDocumentChanged({} as any);
-    }
+    now.value += 1_000;
+    detector.recordEdit({ fileKey, snippet: "const x = 1;\n", line: 10 });
+    assert.strictEqual(detector.evaluate(fileKey).shouldTrigger, false);
 
-    // Ideally we would mock Date.now() or ensure loop runs fast enough.
-    // In this sync loop, it should be very fast (< 2 sec).
+    now.value += 1_000;
+    detector.recordEdit({ fileKey, snippet: "const x = 1;\n", line: 10 });
+    const decision = detector.evaluate(fileKey);
 
-    // We can't easily assertion on the private state or the side effect (showInformationMessage)
-    // without better mocking, but we can check if sendStruggleEvent was called if we mocked it correctly.
+    assert.strictEqual(decision.shouldTrigger, true);
+    assert.strictEqual(decision.reason, "retries");
+    assert.ok(decision.metrics.retryAttemptCount >= 3);
+  });
 
-    // Note: In a real test setup we would use Sinon or Jest spies.
-    // For this basic setup, we rely on the manual mock above.
+  test("Detects struggle on error threshold", () => {
+    const now = { value: 2_000_000 };
+    const detector = createDetector(now);
+    const fileKey = "file:///tmp/example.ts";
 
-    assert.ok(sentEvent, "Should have sent a struggle event");
-    assert.strictEqual(sentEvent.type, "struggle");
+    detector.replaceErrors(fileKey, ["TS1005: ';' expected", "TS2304: Cannot find name 'x'"]);
+    const decision = detector.evaluate(fileKey);
+    assert.strictEqual(decision.shouldTrigger, true);
+    assert.strictEqual(decision.reason, "errors");
   });
 });

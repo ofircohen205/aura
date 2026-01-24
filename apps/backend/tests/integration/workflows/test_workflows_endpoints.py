@@ -60,6 +60,42 @@ async def test_trigger_struggle_workflow():
 
 
 @pytest.mark.asyncio
+async def test_trigger_struggle_workflow_with_client_context():
+    """Struggle endpoint accepts optional client context fields."""
+    with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:
+        mock_get_checkpointer.return_value.__aenter__.return_value = None  # Use None checkpointer
+        mock_get_checkpointer.return_value.__aexit__.return_value = None
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as ac:
+            get_response = await ac.get("/health")
+            csrf_token = get_response.cookies.get("csrf-token")
+
+            response = await ac.post(
+                "/api/v1/workflows/struggle",
+                json={
+                    "edit_frequency": 20.0,
+                    "error_logs": ["TS1005: ';' expected"],
+                    "history": ["attempt 1"],
+                    "source": "vscode",
+                    "file_path": "/tmp/example.ts",
+                    "language_id": "typescript",
+                    "code_snippet": "const x = 1",
+                    "client_timestamp": 1234567890,
+                    "struggle_reason": "retries",
+                    "retry_count": 3,
+                },
+                headers={"X-CSRF-Token": csrf_token} if csrf_token else {},
+                cookies={"csrf-token": csrf_token} if csrf_token else {},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "completed"
+
+
+@pytest.mark.asyncio
 async def test_trigger_struggle_workflow_not_struggling():
     """Test triggering the struggle workflow when user is not struggling."""
     with patch("services.workflows.service.get_checkpointer") as mock_get_checkpointer:

@@ -14,6 +14,16 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "aura.showLesson",
+        "title": "Aura: Show lesson"
+      },
+      {
+        "command": "aura.dismissLesson",
+        "title": "Aura: Dismiss lesson"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -30,6 +40,71 @@
           "name": "Aura Lessons"
         }
       ]
+    },
+    "configuration": {
+      "title": "Aura Guardian",
+      "properties": {
+        "aura.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Aura struggle detection"
+        },
+        "aura.baseUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Aura backend base URL (http/https)"
+        },
+        "aura.windowMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0.1,
+          "description": "Struggle detection window in minutes (production/default)"
+        },
+        "aura.devWindowSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "description": "Struggle detection window in seconds when running the extension in Development mode"
+        },
+        "aura.retryAttemptThreshold": {
+          "type": "number",
+          "default": 3,
+          "minimum": 2,
+          "description": "Number of similar edit attempts required to trigger a struggle signal"
+        },
+        "aura.cooldownMinutes": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "description": "Cooldown between repeated struggle triggers"
+        },
+        "aura.maxSnippetChars": {
+          "type": "number",
+          "default": 300,
+          "minimum": 50,
+          "description": "Maximum number of characters to capture for a snippet around the edit location"
+        },
+        "aura.showCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show CodeLens actions for the latest lesson"
+        },
+        "aura.showHover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show hover tooltip excerpt near the struggle location"
+        },
+        "aura.sendCodeSnippet": {
+          "type": "boolean",
+          "default": true,
+          "description": "Send a small code snippet to the backend for better recommendations"
+        },
+        "aura.sendFilePath": {
+          "type": "boolean",
+          "default": false,
+          "description": "Send the local file path to the backend (may reveal sensitive paths)"
+        }
+      }
     }
   },
   "scripts": {
