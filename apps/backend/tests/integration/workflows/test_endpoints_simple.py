@@ -214,7 +214,7 @@ async def test_get_workflow_state_success():
         mock_get_checkpointer.return_value.__aexit__.return_value = None
 
         client = TestClient(test_app)
-        response = client.get(f"/workflows/{test_thread_id}")
+        response = client.get(f"/{test_thread_id}")
         assert response.status_code == 200
         data = response.json()
         assert data["thread_id"] == test_thread_id
