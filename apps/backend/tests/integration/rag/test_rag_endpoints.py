@@ -455,18 +455,23 @@ async def test_get_rag_stats_empty_breakdowns():
         ]
     )
 
+    async def mock_get_session():
+        yield mock_db
+
     with (
         patch("api.v1.rag.endpoints.RAG_ENABLED", True),
-        patch("api.v1.rag.endpoints.SessionDep") as mock_session_dep,
         patch("api.v1.rag.endpoints.PGVECTOR_COLLECTION", "test_collection"),
     ):
-        mock_session_dep.return_value = mock_db
-        client = TestClient(test_app)
-        response = client.get("/stats")
+        test_app.dependency_overrides[get_session] = mock_get_session
+        try:
+            client = TestClient(test_app)
+            response = client.get("/stats")
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total_documents"] == 5
-        assert data["total_chunks"] == 50
-        assert data["documents_by_language"] == {}
-        assert data["documents_by_difficulty"] == {}
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_documents"] == 5
+            assert data["total_chunks"] == 50
+            assert data["documents_by_language"] == {}
+            assert data["documents_by_difficulty"] == {}
+        finally:
+            test_app.dependency_overrides.pop(get_session, None)

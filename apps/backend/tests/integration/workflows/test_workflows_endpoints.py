@@ -46,7 +46,7 @@ async def test_trigger_struggle_workflow():
             csrf_token = get_response.cookies.get("csrf-token")
 
             response = await ac.post(
-                "/api/v1/workflows/workflows/struggle",
+                "/api/v1/workflows/struggle",
                 json={"edit_frequency": 20.0, "error_logs": ["Error 1"], "history": []},
                 headers={"X-CSRF-Token": csrf_token} if csrf_token else {},
                 cookies={"csrf-token": csrf_token} if csrf_token else {},
@@ -74,7 +74,7 @@ async def test_trigger_struggle_workflow_not_struggling():
             csrf_token = get_response.cookies.get("csrf-token")
 
             response = await ac.post(
-                "/api/v1/workflows/workflows/struggle",
+                "/api/v1/workflows/struggle",
                 json={"edit_frequency": 5.0, "error_logs": [], "history": []},
                 headers={"X-CSRF-Token": csrf_token} if csrf_token else {},
                 cookies={"csrf-token": csrf_token} if csrf_token else {},
@@ -102,7 +102,7 @@ async def test_trigger_audit_workflow_with_violations():
             csrf_token = get_response.cookies.get("csrf-token")
 
             response = await ac.post(
-                "/api/v1/workflows/workflows/audit",
+                "/api/v1/workflows/audit",
                 json={
                     "diff_content": """--- a/src/file.py
 +++ b/src/file.py
@@ -138,7 +138,7 @@ async def test_trigger_audit_workflow_clean_code():
             csrf_token = get_response.cookies.get("csrf-token")
 
             response = await ac.post(
-                "/api/v1/workflows/workflows/audit",
+                "/api/v1/workflows/audit",
                 json={
                     "diff_content": """--- a/src/file.py
 +++ b/src/file.py
@@ -175,7 +175,7 @@ async def test_get_workflow_state_without_db():
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"
         ) as ac:
-            response = await ac.get(f"/api/v1/workflows/workflows/{non_existent_thread_id}")
+            response = await ac.get(f"/api/v1/workflows/{non_existent_thread_id}")
 
         # Without database, checkpoint won't be found
         assert response.status_code == 404
