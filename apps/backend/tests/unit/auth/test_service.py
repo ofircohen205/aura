@@ -162,9 +162,11 @@ class TestAuthServiceTokenRefresh:
         mock_manager.get_client = AsyncMock(return_value=mock_redis_client)
         mock_redis_client.get = AsyncMock(return_value=None)
 
-        with patch("services.auth.service.get_redis_client_manager", return_value=mock_manager):
-            with pytest.raises(RefreshTokenNotFoundError):
-                await auth_service.refresh_access_token(
-                    session=mock_db_session,
-                    refresh_token_str="invalid_token",
-                )
+        with (
+            patch("services.auth.service.get_redis_client_manager", return_value=mock_manager),
+            pytest.raises(RefreshTokenNotFoundError),
+        ):
+            await auth_service.refresh_access_token(
+                session=mock_db_session,
+                refresh_token_str="invalid_token",
+            )

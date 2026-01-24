@@ -326,13 +326,13 @@ async def test_get_rag_stats_no_collection():
             client = TestClient(test_app)
             response = client.get("/stats")
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total_documents"] == 0
-        assert data["total_chunks"] == 0
-        assert data["collection_name"] == "nonexistent"
-        assert data["documents_by_language"] == {}
-        assert data["documents_by_difficulty"] == {}
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_documents"] == 0
+            assert data["total_chunks"] == 0
+            assert data["collection_name"] == "nonexistent"
+            assert data["documents_by_language"] == {}
+            assert data["documents_by_difficulty"] == {}
         finally:
             test_app.dependency_overrides.pop(get_session, None)
 
