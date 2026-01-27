@@ -260,7 +260,7 @@ class RagService:
             from langchain_community.vectorstores import PGVector
 
             self._vector_store = PGVector(
-                connection=PGVECTOR_CONNECTION_STRING,
+                connection_string=PGVECTOR_CONNECTION_STRING,
                 embedding_function=self._embedding_model,
                 collection_name=PGVECTOR_COLLECTION,
                 use_jsonb=True,  # Use JSONB for metadata for better performance
