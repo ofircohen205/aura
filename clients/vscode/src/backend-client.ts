@@ -1,6 +1,8 @@
 import axios from "axios";
 import * as vscode from "vscode";
 
+const AURA_CLIENT = "vscode";
+
 export type StruggleWorkflowRequest = {
   edit_frequency: number;
   error_logs: string[];
@@ -56,9 +58,17 @@ export class BackendClient {
     await new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  private getBaseHeaders(): Record<string, string> {
+    return {
+      "X-Aura-Client": AURA_CLIENT,
+    };
+  }
+
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await axios.get(`${this.getBaseUrl()}/health`);
+      const response = await axios.get(`${this.getBaseUrl()}/health`, {
+        headers: this.getBaseHeaders(),
+      });
       this.tryCaptureCsrfTokenFromResponse(response.headers);
       return response.status === 200;
     } catch (error) {
@@ -86,7 +96,10 @@ export class BackendClient {
     if (this.csrfToken) return this.csrfToken;
 
     try {
-      const response = await axios.get(`${this.getBaseUrl()}/health`, { timeout: 10_000 });
+      const response = await axios.get(`${this.getBaseUrl()}/health`, {
+        timeout: 10_000,
+        headers: this.getBaseHeaders(),
+      });
       this.tryCaptureCsrfTokenFromResponse(response.headers);
       return this.csrfToken;
     } catch (error) {
@@ -96,11 +109,13 @@ export class BackendClient {
   }
 
   private async buildCsrfHeaders(): Promise<Record<string, string>> {
+    const baseHeaders = this.getBaseHeaders();
     const token = await this.ensureCsrfToken();
-    if (!token) return {};
+    if (!token) return baseHeaders;
 
     // Double-submit cookie pattern: cookie and header must match.
     return {
+      ...baseHeaders,
       "X-CSRF-Token": token,
       Cookie: `csrf-token=${token}`,
     };

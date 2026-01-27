@@ -38,7 +38,7 @@ def detect_struggle(state: StruggleState) -> StruggleState:
     )
 
     logger.info(
-        "Struggle detection evaluated",
+        f"Struggle detection evaluated, edit_frequency: {edit_freq}, error_count: {error_count}",
         extra={
             "edit_frequency": edit_freq,
             "error_count": error_count,
