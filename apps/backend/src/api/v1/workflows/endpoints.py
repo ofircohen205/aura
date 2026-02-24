@@ -48,6 +48,12 @@ async def trigger_struggle_workflow(
         edit_frequency=inp.edit_frequency,
         error_logs_count=len(inp.error_logs),
         history_count=len(inp.history) if inp.history else 0,
+        source=inp.source,
+        file_path=inp.file_path,
+        language_id=inp.language_id,
+        retry_count=inp.retry_count,
+        struggle_reason=inp.struggle_reason,
+        has_code_snippet=inp.code_snippet is not None,
     ) as op_ctx:
         result = await workflow_service.trigger_struggle_workflow(
             edit_frequency=inp.edit_frequency,

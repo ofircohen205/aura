@@ -32,6 +32,7 @@ aura/
 ## Technology Stack
 
 ### Backend (Python)
+
 - **Framework**: FastAPI with uvicorn
 - **Python Version**: 3.13
 - **Database**: PostgreSQL 15 with pgvector extension
@@ -42,6 +43,7 @@ aura/
 - **Package Manager**: uv
 
 ### Frontend (TypeScript)
+
 - **Framework**: Next.js 16 with React 19
 - **Styling**: Tailwind CSS
 - **State Management**: Zustand
@@ -65,6 +67,7 @@ Core Layer (Config, security, logging, exceptions)
 ```
 
 ### Key Directories (apps/backend/src/)
+
 - `core/` - Configuration, exceptions, logging, security, metrics
 - `db/` - Database models and session management
 - `dao/` - Data Access Objects with CRUD operations
@@ -72,7 +75,9 @@ Core Layer (Config, security, logging, exceptions)
 - `api/v1/` - API endpoints organized as sub-applications
 
 ### API Sub-applications
+
 Each module in `api/v1/` is self-contained with:
+
 - `endpoints.py` - Route handlers
 - `schemas.py` - Pydantic request/response models
 - `exceptions.py` - Module-specific exceptions
@@ -81,6 +86,7 @@ Each module in `api/v1/` is self-contained with:
 ## Essential Commands
 
 ### Development
+
 ```bash
 just dev              # Start all services (backend, web, postgres, redis)
 just dev-detached     # Start in background
@@ -90,6 +96,7 @@ just dev-logs         # View logs from all services
 ```
 
 ### Testing
+
 ```bash
 just test             # Run all tests (Python + TypeScript) in Docker
 just test-py          # Run Python tests in Docker
@@ -99,6 +106,7 @@ just test-py-integration-docker  # Run integration tests against Docker DB
 ```
 
 ### Code Quality
+
 ```bash
 just lint             # Run all linters
 just lint-fix         # Auto-fix linting issues
@@ -109,6 +117,7 @@ just security-check   # Run bandit and npm audit
 ```
 
 ### Git & PR Workflow
+
 ```bash
 just branch-create <name>     # Create feature branch from main
 just branch-linear <id> <desc>  # Create branch with Linear integration
@@ -118,18 +127,22 @@ just pr-create <title> <desc>   # Create pull request
 ## Code Quality Standards
 
 ### Python
+
 - **Linter**: Ruff (formatting + linting)
 - **Type Checker**: MyPy
 - **Security**: Bandit
 - **Style**: Black-compatible formatting, 100 char line length
 
 ### TypeScript
+
 - **Linter**: ESLint
 - **Formatter**: Prettier
 - **Type Checking**: TypeScript strict mode
 
 ### Pre-commit Hooks
+
 All commits must pass pre-commit hooks:
+
 - trailing-whitespace, end-of-file-fixer
 - check-yaml, check-json, check-toml
 - ruff (lint + format)
@@ -142,13 +155,16 @@ All commits must pass pre-commit hooks:
 ## Testing Patterns
 
 ### Python Test Categories
+
 Tests are organized with pytest markers:
+
 - `@pytest.mark.unit` - Isolated tests with mocked dependencies
 - `@pytest.mark.integration` - Require database/Redis
 - `@pytest.mark.e2e` - Full stack tests
 - `@pytest.mark.performance` - Benchmarks
 
 ### Test Directory Structure
+
 ```
 apps/backend/tests/
 ├── unit/              # Unit tests
@@ -162,6 +178,7 @@ apps/backend/tests/
 ```
 
 ### Frontend Testing
+
 - Unit tests: Vitest with @testing-library/react
 - E2E tests: Playwright
 - API mocking: MSW (Mock Service Worker)
@@ -169,11 +186,13 @@ apps/backend/tests/
 ## Environment Configuration
 
 Configuration is managed via environment files:
+
 - `.env.local` - Local development
 - `.env.staging` - Staging environment
 - `.env.production` - Production environment
 
 Key environment variables:
+
 - `ENVIRONMENT` - local/staging/production
 - `POSTGRES_DB_URI` - Database connection string
 - `REDIS_URL` - Redis connection
@@ -187,24 +206,26 @@ See `.env.example` for complete list with documentation.
 
 GitHub Actions workflows in `.github/workflows/`:
 
-| Workflow | Purpose |
-|----------|---------|
-| python-ci.yml | Python lint, type check, tests |
-| typescript-ci.yml | TypeScript lint, type check, build, tests |
-| docker-build.yml | Build and push Docker images |
-| vscode-extension-ci.yml | VSCode extension build and test |
-| github-app-ci.yml | GitHub app tests |
-| web-dashboard-vercel.yml | Vercel deployment |
+| Workflow                 | Purpose                                   |
+| ------------------------ | ----------------------------------------- |
+| python-ci.yml            | Python lint, type check, tests            |
+| typescript-ci.yml        | TypeScript lint, type check, build, tests |
+| docker-build.yml         | Build and push Docker images              |
+| vscode-extension-ci.yml  | VSCode extension build and test           |
+| github-app-ci.yml        | GitHub app tests                          |
+| web-dashboard-vercel.yml | Vercel deployment                         |
 
 ## Critical Rules for AI Assistants
 
 ### Before Committing
+
 1. **ALWAYS run `just ci-check` before committing**
 2. **NEVER commit if pre-commit hooks fail**
 3. Fix all linting and type errors first
 4. Ensure tests pass
 
 ### Code Style
+
 - Follow SOLID principles
 - Write self-documenting code with meaningful names
 - Use type hints in Python (type checking is enabled)
@@ -212,12 +233,14 @@ GitHub Actions workflows in `.github/workflows/`:
 - Include comprehensive error handling
 
 ### Architecture Rules
+
 - Apps should depend on libs, NOT on each other
 - Keep shared code in `libs/`
 - Follow the layered architecture in backend
 - Each API module should be self-contained
 
 ### Security
+
 - Never commit secrets or API keys
 - Validate all inputs
 - Use proper authentication/authorization
@@ -225,6 +248,7 @@ GitHub Actions workflows in `.github/workflows/`:
 - Security checks run in pre-commit
 
 ### Testing
+
 - Write unit tests for business logic
 - Include integration tests for APIs
 - Test error cases and edge conditions
@@ -233,17 +257,20 @@ GitHub Actions workflows in `.github/workflows/`:
 ## Common Development Tasks
 
 ### Adding a New API Endpoint
+
 1. Create schemas in `api/v1/<module>/schemas.py`
 2. Add service logic in `services/<module>/`
 3. Implement endpoint in `api/v1/<module>/endpoints.py`
 4. Add tests in `tests/unit/` and `tests/integration/`
 
 ### Adding Database Models
+
 1. Define model in `db/models/`
 2. Create DAO in `dao/`
 3. Add Flyway migration in `deployment/migration/`
 
 ### Working with LangGraph Workflows
+
 - Workflows are in `libs/agentic-py/workflows/`
 - State definitions in `libs/agentic-py/states/`
 - Agents in `libs/agentic-py/agents/`
@@ -259,6 +286,7 @@ GitHub Actions workflows in `.github/workflows/`:
 ## Monorepo Dependencies
 
 ### Python Workspaces (uv)
+
 ```
 apps/backend       → depends on libs/agentic-py
 clients/cli        → depends on libs/agentic-py
@@ -266,6 +294,7 @@ libs/agentic-py    → standalone
 ```
 
 ### TypeScript Workspaces (npm)
+
 ```
 apps/web-dashboard → depends on libs/shared-ts
 clients/vscode     → depends on libs/shared-ts
@@ -274,15 +303,15 @@ clients/github-app → standalone
 
 ## Quick Reference
 
-| Task | Command |
-|------|---------|
-| Start dev environment | `just dev` |
-| Run all tests | `just test` |
-| Lint code | `just lint` |
-| Fix lint issues | `just lint-fix` |
-| Run CI checks locally | `just ci-check` |
+| Task                  | Command                     |
+| --------------------- | --------------------------- |
+| Start dev environment | `just dev`                  |
+| Run all tests         | `just test`                 |
+| Lint code             | `just lint`                 |
+| Fix lint issues       | `just lint-fix`             |
+| Run CI checks locally | `just ci-check`             |
 | Create feature branch | `just branch-create <name>` |
-| View Docker logs | `just dev-logs` |
-| Backend only | Port 8000 |
-| Frontend only | Port 3000 |
-| PostgreSQL | Port 5432 |
+| View Docker logs      | `just dev-logs`             |
+| Backend only          | Port 8000                   |
+| Frontend only         | Port 3000                   |
+| PostgreSQL            | Port 5432                   |

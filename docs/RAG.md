@@ -24,12 +24,13 @@ The RAG pipeline consists of several components:
 3. **Ingestion Pipeline** - Process and ingest documents into vector stores
 4. **RAG Service** - Query the vector store for relevant knowledge
 
-### Vector Store Types
+### Vector Store
 
-The pipeline supports two vector store backends:
+The pipeline uses **pgvector** (PostgreSQL extension) for vector similarity search. This provides:
 
-- **pgvector** (Production): PostgreSQL extension for vector similarity search
-- **FAISS** (Development): Local file-based vector store for testing
+- ACID guarantees through PostgreSQL
+- Single database for all data (no separate vector store)
+- Production-ready with proper document management
 
 ## Configuration
 
@@ -39,15 +40,12 @@ Set the following environment variables:
 # Enable RAG
 RAG_ENABLED=true
 
-# Vector store type
-VECTOR_STORE_TYPE=pgvector  # or "faiss"
+# Vector store type (pgvector only)
+VECTOR_STORE_TYPE=pgvector
 
 # pgvector configuration
 PGVECTOR_CONNECTION_STRING=postgresql://user:password@localhost:5432/aura
 PGVECTOR_COLLECTION=aura_knowledge_base
-
-# FAISS configuration
-FAISS_INDEX_PATH=./faiss_index
 
 # Chunking configuration
 CHUNKING_STRATEGY=recursive  # or "fixed"
@@ -564,7 +562,7 @@ logger.info(
 - `files_processed`: Number of files processed
 - `total_chunks`: Total chunks created
 - `errors`: Number of errors encountered
-- `vector_store_type`: Type of vector store (pgvector/faiss)
+- `vector_store_type`: Type of vector store (pgvector)
 - `error`: Error message
 - `error_type`: Type of error (exception class name)
 
@@ -625,18 +623,14 @@ RAG_MAX_FILE_SIZE=52428800  # 50MB
 Ensure:
 
 1. `RAG_ENABLED=true` is set
-2. For pgvector: Extension is installed and connection string is correct
-3. For FAISS: Directory exists and is writable
+2. pgvector extension is installed in PostgreSQL
+3. Connection string is correct (`PGVECTOR_CONNECTION_STRING`)
 
 ### No Results from Queries
 
 1. Verify documents have been ingested
 2. Check that embeddings are being generated (requires OpenAI API key)
 3. Try increasing `RAG_TOP_K` to retrieve more results
-
-### FAISS Placeholder Document
-
-FAISS creates a placeholder document on first initialization. This is normal and will be replaced when you ingest real documents.
 
 ### Path Validation Errors
 

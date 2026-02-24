@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 export class LessonPanel implements vscode.WebviewViewProvider {
   public static readonly viewType = "aura.lessonPanel";
   private _view?: vscode.WebviewView;
+  private pendingContent: string | null = null;
 
   constructor() {}
 
@@ -19,11 +20,18 @@ export class LessonPanel implements vscode.WebviewViewProvider {
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+    if (this.pendingContent) {
+      this._view.webview.postMessage({ type: "showLesson", content: this.pendingContent });
+      this.pendingContent = null;
+    }
   }
 
   public showLesson(content: string) {
     if (this._view) {
       this._view.webview.postMessage({ type: "showLesson", content: content });
+    } else {
+      this.pendingContent = content;
     }
   }
 
@@ -40,9 +48,10 @@ export class LessonPanel implements vscode.WebviewViewProvider {
                 </style>
 			</head>
 			<body>
-				<div id="content">
-                    <h3>Welcome to Aura</h3>
-                    <p>Start coding to receive guidance.</p>
+				<div class="lesson-card">
+                    <h3>Aura Lessons</h3>
+                    <p id="status">Start coding to receive guidance.</p>
+                    <pre id="content" style="white-space: pre-wrap; margin-top: 10px;"></pre>
                 </div>
                 <script>
                     const vscode = acquireVsCodeApi();
@@ -50,7 +59,9 @@ export class LessonPanel implements vscode.WebviewViewProvider {
                         const message = event.data;
                         switch (message.type) {
                             case 'showLesson':
-                                document.getElementById('content').innerHTML = message.content;
+                                // Treat all content as untrusted; render as plain text.
+                                document.getElementById('status').textContent = "Lesson recommendation:";
+                                document.getElementById('content').textContent = String(message.content ?? "");
                                 break;
                         }
                     });

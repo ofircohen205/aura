@@ -6,6 +6,7 @@ import { ROUTES } from "@/lib/routes";
 import { ENDPOINTS } from "./endpoints";
 
 const API_BASE_URL = getEnv("NEXT_PUBLIC_API_URL", "http://localhost:8000");
+const AURA_CLIENT = "web-dashboard";
 
 interface QueuedRequest {
   resolve: (value: any) => void;
@@ -22,6 +23,7 @@ class ApiClient {
       baseURL: API_BASE_URL,
       headers: {
         "Content-Type": "application/json",
+        "X-Aura-Client": AURA_CLIENT,
       },
       withCredentials: true,
     });
@@ -32,6 +34,10 @@ class ApiClient {
   private setupInterceptors() {
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
+        if (config.headers) {
+          config.headers["X-Aura-Client"] = AURA_CLIENT;
+        }
+
         if (typeof window !== "undefined") {
           const token = localStorage.getItem("access_token");
           if (token && config.headers) {
@@ -83,7 +89,12 @@ class ApiClient {
             const response = await axios.post(
               `${API_BASE_URL}${ENDPOINTS.AUTH.REFRESH}`,
               { refresh_token: refreshToken },
-              { withCredentials: true }
+              {
+                withCredentials: true,
+                headers: {
+                  "X-Aura-Client": AURA_CLIENT,
+                },
+              }
             );
 
             const { access_token, refresh_token: newRefreshToken } = response.data;

@@ -23,12 +23,35 @@ def detect_struggle(state: StruggleState) -> StruggleState:
     """
     Analyzes input metrics to detect if the user is struggling.
 
+    If the client provides a combined_score from multi-signal detection,
+    we trust the client's assessment. Otherwise, fall back to legacy
+    threshold-based detection.
+
     Args:
         state: Current workflow state containing edit frequency and error logs
 
     Returns:
         Updated state with is_struggling flag set
     """
+    combined_score = state.get("combined_score")
+    primary_signal = state.get("primary_signal")
+
+    # Trust client's multi-signal detection when combined_score is provided
+    # A score > 0 means the client has already determined the user is struggling
+    # (client only sends request when score exceeds its trigger threshold)
+    if combined_score is not None and combined_score > 0:
+        logger.info(
+            "Struggle detection using client combined_score",
+            extra={
+                "combined_score": combined_score,
+                "primary_signal": primary_signal,
+                "is_struggling": True,
+                "detection_mode": "client_multi_signal",
+            },
+        )
+        return {"is_struggling": True}
+
+    # Legacy fallback: use server-side thresholds
     edit_freq = state["edit_frequency"]
     error_count = len(state["error_logs"])
 
@@ -38,13 +61,14 @@ def detect_struggle(state: StruggleState) -> StruggleState:
     )
 
     logger.info(
-        "Struggle detection evaluated",
+        f"Struggle detection evaluated, edit_frequency: {edit_freq}, error_count: {error_count}",
         extra={
             "edit_frequency": edit_freq,
             "error_count": error_count,
             "is_struggling": is_struggling,
             "threshold_frequency": STRUGGLE_THRESHOLD_EDIT_FREQUENCY,
             "threshold_errors": STRUGGLE_THRESHOLD_ERROR_COUNT,
+            "detection_mode": "legacy_threshold",
         },
     )
 

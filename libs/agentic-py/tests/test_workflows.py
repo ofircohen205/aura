@@ -79,6 +79,51 @@ def test_detect_struggle_extreme_values():
     result = detect_struggle(state)
     assert result["is_struggling"] is True
 
+
+def test_detect_struggle_with_combined_score():
+    """Test that combined_score from client is trusted over legacy thresholds."""
+    # Low edit_frequency but combined_score provided - should trust client
+    state = StruggleState(
+        edit_frequency=1.0,  # Below legacy threshold
+        error_logs=[],  # No errors
+        history=[],
+        is_struggling=False,
+        lesson_recommendation=None,
+        combined_score=0.75,  # Client says user is struggling
+        primary_signal="time_pattern",
+    )
+    result = detect_struggle(state)
+    assert result["is_struggling"] is True
+
+
+def test_detect_struggle_combined_score_zero():
+    """Test that combined_score of 0 falls back to legacy detection."""
+    state = StruggleState(
+        edit_frequency=1.0,  # Below legacy threshold
+        error_logs=[],
+        history=[],
+        is_struggling=False,
+        lesson_recommendation=None,
+        combined_score=0.0,  # Zero score
+    )
+    result = detect_struggle(state)
+    assert result["is_struggling"] is False
+
+
+def test_detect_struggle_no_combined_score_fallback():
+    """Test fallback to legacy when combined_score is None."""
+    # No combined_score, but high edit_frequency - should use legacy
+    state = StruggleState(
+        edit_frequency=15.0,  # Above legacy threshold
+        error_logs=[],
+        history=[],
+        is_struggling=False,
+        lesson_recommendation=None,
+        combined_score=None,
+    )
+    result = detect_struggle(state)
+    assert result["is_struggling"] is True
+
     # Many errors
     state = StruggleState(
         edit_frequency=1.0,

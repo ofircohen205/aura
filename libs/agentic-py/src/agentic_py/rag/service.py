@@ -14,13 +14,11 @@ from loguru import logger
 
 from agentic_py.config.llm import EMBEDDING_MODEL
 from agentic_py.config.rag import (
-    FAISS_INDEX_PATH,
     PGVECTOR_COLLECTION,
     PGVECTOR_CONNECTION_STRING,
     RAG_ENABLED,
     RAG_INGESTION_BATCH_SIZE,
     RAG_TOP_K,
-    VECTOR_STORE_TYPE,
 )
 from agentic_py.rag.ingestion import ingest_directory, ingest_document
 
@@ -32,12 +30,11 @@ class RagService:
     """
     RAG Service for querying vector store and retrieving relevant context.
 
-    This service provides an interface for querying a vector store (pgvector/FAISS)
+    This service provides an interface for querying a pgvector vector store
     to retrieve relevant documentation and code examples based on error patterns
     and user struggles.
 
-    Supports both pgvector (PostgreSQL extension) for production and FAISS for
-    local development/testing.
+    Uses pgvector (PostgreSQL extension) as the sole vector store backend.
     """
 
     def __init__(self, enabled: bool = False):
@@ -99,7 +96,7 @@ class RagService:
             if not self._vector_store:
                 logger.warning(
                     "Vector store not initialized, returning empty context",
-                    extra={"vector_store_type": VECTOR_STORE_TYPE},
+                    extra={"vector_store_type": "pgvector"},
                 )
                 return "Vector store not available. Please check configuration."
 
@@ -123,7 +120,7 @@ class RagService:
                 extra={
                     "enhanced_query_length": len(enhanced_query),
                     "top_k": top_k,
-                    "vector_store_type": VECTOR_STORE_TYPE,
+                    "vector_store_type": "pgvector",
                 },
             )
 
@@ -160,7 +157,7 @@ class RagService:
                     "search_duration_ms": search_duration * 1000,
                     "format_duration_ms": format_duration * 1000,
                     "total_duration_ms": total_duration * 1000,
-                    "vector_store_type": VECTOR_STORE_TYPE,
+                    "vector_store_type": "pgvector",
                 },
             )
             return context
@@ -176,7 +173,7 @@ class RagService:
                     "duration_ms": total_duration * 1000,
                     "error": str(e),
                     "error_type": type(e).__name__,
-                    "vector_store_type": VECTOR_STORE_TYPE,
+                    "vector_store_type": "pgvector",
                 },
                 exc_info=True,
             )
@@ -189,9 +186,8 @@ class RagService:
 
     async def _initialize_vector_store(self) -> None:
         """
-        Initialize the vector store connection.
+        Initialize the pgvector vector store connection.
 
-        Supports both pgvector (PostgreSQL extension) and FAISS for local development.
         Uses a lock to prevent concurrent initialization.
         """
         # Check again after acquiring lock (double-check pattern)
@@ -221,35 +217,26 @@ class RagService:
                 extra={"model": EMBEDDING_MODEL},
             )
 
-            if VECTOR_STORE_TYPE == "pgvector":
-                await self._initialize_pgvector()
-            elif VECTOR_STORE_TYPE == "faiss":
-                await self._initialize_faiss()
-            else:
-                raise ValueError(
-                    f"Unsupported vector store type: {VECTOR_STORE_TYPE}. "
-                    f"Supported types: pgvector, faiss"
-                )
+            await self._initialize_pgvector()
 
             logger.info(
                 "Vector store initialized successfully",
-                extra={"vector_store_type": VECTOR_STORE_TYPE},
+                extra={"vector_store_type": "pgvector"},
             )
 
         except ImportError as e:
             logger.error(
-                f"Required package not installed for {VECTOR_STORE_TYPE}: {e}",
+                f"Required package not installed for pgvector: {e}",
                 exc_info=True,
             )
             raise ImportError(
                 "Vector store dependencies not installed. "
-                "For pgvector: pip install langchain-community pgvector. "
-                "For FAISS: pip install langchain-community faiss-cpu"
+                "For pgvector: pip install langchain-community pgvector"
             ) from e
         except Exception as e:
             logger.error(
                 f"Failed to initialize vector store: {e}",
-                extra={"vector_store_type": VECTOR_STORE_TYPE},
+                extra={"vector_store_type": "pgvector"},
                 exc_info=True,
             )
             raise
@@ -260,7 +247,7 @@ class RagService:
             from langchain_community.vectorstores import PGVector
 
             self._vector_store = PGVector(
-                connection=PGVECTOR_CONNECTION_STRING,
+                connection_string=PGVECTOR_CONNECTION_STRING,
                 embedding_function=self._embedding_model,
                 collection_name=PGVECTOR_COLLECTION,
                 use_jsonb=True,  # Use JSONB for metadata for better performance
@@ -283,52 +270,6 @@ class RagService:
                 "Ensure PostgreSQL has the pgvector extension installed: "
                 "CREATE EXTENSION vector;"
             ) from e
-
-    async def _initialize_faiss(self) -> None:
-        """Initialize FAISS vector store for local development."""
-        try:
-            from pathlib import Path
-
-            from langchain_community.vectorstores import FAISS
-
-            index_path = Path(FAISS_INDEX_PATH)
-
-            # Try to load existing index if it exists
-            if index_path.exists() and (index_path / "index.faiss").exists():
-                logger.debug(f"Loading existing FAISS index from {FAISS_INDEX_PATH}")
-                self._vector_store = FAISS.load_local(
-                    str(index_path),
-                    self._embedding_model,
-                    allow_dangerous_deserialization=True,  # Required for FAISS
-                )
-            else:
-                logger.warning(
-                    f"FAISS index not found at {FAISS_INDEX_PATH}, "
-                    f"creating empty vector store. "
-                    f"Use FAISS.from_documents() to populate it."
-                )
-                # Create empty FAISS store - will need to be populated separately
-                # WARNING: FAISS doesn't have a direct delete method, so we create a minimal
-                # placeholder document to initialize the store. This placeholder will remain
-                # in the index and may appear in search results until the index is rebuilt.
-                # For production use, prefer pgvector which supports proper document management.
-                from langchain_core.documents import Document
-
-                self._vector_store = FAISS.from_documents(
-                    [Document(page_content="placeholder", metadata={})],
-                    self._embedding_model,
-                )
-                logger.warning(
-                    "FAISS initialized with placeholder document. "
-                    "Placeholder may appear in search results. "
-                    "Consider using pgvector for production deployments."
-                )
-
-            logger.debug(f"FAISS initialized from {FAISS_INDEX_PATH}")
-
-        except Exception as e:
-            logger.error(f"Failed to initialize FAISS: {e}", exc_info=True)
-            raise RuntimeError(f"FAISS initialization failed: {e}") from e
 
     def _enhance_query(self, query: str, error_patterns: list[str] | None) -> str:
         """
@@ -437,16 +378,12 @@ class RagService:
         # Note: LangChain vector stores use synchronous add_documents, so we run in executor
         await asyncio.to_thread(self._vector_store.add_documents, documents)
 
-        # For FAISS, save the index after adding documents
-        if VECTOR_STORE_TYPE == "faiss":
-            await asyncio.to_thread(self._vector_store.save_local, FAISS_INDEX_PATH)
-
         logger.info(
             "Document ingested successfully",
             extra={
                 "path": str(path),
                 "chunks": len(documents),
-                "vector_store_type": VECTOR_STORE_TYPE,
+                "vector_store_type": "pgvector",
             },
         )
 
@@ -523,10 +460,6 @@ class RagService:
                 extra={"batch_size": len(batch), "total": len(documents)},
             )
 
-        # For FAISS, save the index after adding all documents
-        if VECTOR_STORE_TYPE == "faiss":
-            await asyncio.to_thread(self._vector_store.save_local, FAISS_INDEX_PATH)
-
         logger.info(
             "Directory ingestion completed",
             extra={
@@ -547,15 +480,12 @@ class RagService:
         """
         Delete a document from the vector store by source path.
 
-        Note: This method only works with pgvector. FAISS doesn't support
-        document deletion without rebuilding the index.
-
         Args:
             source: Source path of the document to delete
 
         Raises:
-            NotImplementedError: If using FAISS (deletion not supported)
             RuntimeError: If vector store is not initialized
+            NotImplementedError: Feature not yet fully implemented
 
         Example:
             >>> await service.delete_document("docs/guide.md")
@@ -566,12 +496,6 @@ class RagService:
 
         if not self._vector_store:
             raise RuntimeError("Vector store not initialized")
-
-        if VECTOR_STORE_TYPE == "faiss":
-            raise NotImplementedError(
-                "Document deletion is not supported for FAISS. "
-                "Rebuild the index or use pgvector for production deployments."
-            )
 
         # For pgvector, we need to delete by metadata filter
         # LangChain PGVector doesn't have a direct delete method, so we'd need
@@ -612,7 +536,6 @@ class RagService:
             return []
 
         # For pgvector, we could query the database directly
-        # For FAISS, this is more limited
         # This feature is not yet implemented
         raise NotImplementedError(
             "list_documents() is not yet fully implemented. "

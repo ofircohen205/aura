@@ -168,9 +168,9 @@ uv run aura --help
 
 The VSCode extension development still happens on your host machine:
 
-1. Navigate to `clients/vscode`
-2. Run `npm install` (or use Docker: `just docker-exec "cd clients/vscode && npm install"`)
-3. Open in VSCode and press `F5` to launch Extension Development Host
+1. Make sure the backend is running (recommended): `just dev` or `just dev-detached`
+2. Use the repo debug configuration to launch the Extension Development Host:
+   - See [VSCode Extension Debugging](VSCODE_EXTENSION_DEBUGGING.md)
 
 ### Stop Services
 
