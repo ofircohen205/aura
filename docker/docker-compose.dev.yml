@@ -22,6 +22,22 @@ services:
       - LOG_FORMAT=text
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - REDIS_ENABLED=${REDIS_ENABLED:-true}
+      # RAG Configuration
+      - RAG_ENABLED=${RAG_ENABLED:-true}
+      - RAG_TOP_K=${RAG_TOP_K:-3}
+      - RAG_SIMILARITY_THRESHOLD=${RAG_SIMILARITY_THRESHOLD:-0.7}
+      # Vector Store Configuration
+      - VECTOR_STORE_TYPE=${VECTOR_STORE_TYPE:-pgvector}
+      - PGVECTOR_CONNECTION_STRING=${PGVECTOR_CONNECTION_STRING:-postgresql://${POSTGRES_USER:-aura}:${POSTGRES_PASSWORD:-aura}@postgres:5432/${POSTGRES_DB:-aura_db}}
+      - PGVECTOR_COLLECTION=${PGVECTOR_COLLECTION:-aura_knowledge_base}
+      - PGVECTOR_TABLE_NAME=${PGVECTOR_TABLE_NAME:-embeddings}
+      # Embedding Configuration
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # LLM Configuration
+      - LLM_ENABLED=${LLM_ENABLED:-false}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
     depends_on:
       - postgres
       - flyway

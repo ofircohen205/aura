@@ -631,7 +631,7 @@ OPENAI_API_KEY=your-api-key-here
 
 # RAG Configuration (optional)
 RAG_ENABLED=false
-VECTOR_STORE_TYPE=pgvector  # or "faiss" for local dev
+VECTOR_STORE_TYPE=pgvector
 PGVECTOR_CONNECTION_STRING=postgresql://user:pass@localhost/db
 PGVECTOR_COLLECTION=aura_knowledge_base
 
@@ -667,23 +667,13 @@ Set the `ENVIRONMENT` variable to select which config file to use.
    ```
 3. Configure connection string in `.env.local`
 
-**For local development with FAISS:**
-
-Set `VECTOR_STORE_TYPE=faiss` and configure `FAISS_INDEX_PATH`.
-
 ### Vector Store Configuration
 
-Aura supports two vector store backends:
+Aura uses **pgvector** (PostgreSQL extension) for vector storage:
 
-1. **pgvector** (Production): PostgreSQL extension for vector storage
-   - Requires PostgreSQL with pgvector extension
-   - Better for production (ACID guarantees, single database)
-   - Configure via `PGVECTOR_CONNECTION_STRING`
-
-2. **FAISS** (Local Development): In-memory vector store
-   - No database required
-   - Fast for local development
-   - Configure via `FAISS_INDEX_PATH`
+- Requires PostgreSQL with pgvector extension
+- Provides ACID guarantees with single database
+- Configure via `PGVECTOR_CONNECTION_STRING`
 
 ## Troubleshooting
 
@@ -745,8 +735,8 @@ Aura supports two vector store backends:
 
 1. Set `RAG_ENABLED=true` in environment
 2. Verify vector store configuration
-3. For pgvector: Ensure extension is installed
-4. For FAISS: Ensure index path exists and is accessible
+3. Ensure pgvector extension is installed in PostgreSQL
+4. Check `PGVECTOR_CONNECTION_STRING` is correct
 
 ### Debugging Tips
 

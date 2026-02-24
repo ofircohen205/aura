@@ -38,9 +38,9 @@ class RAGConfig(BaseSettings):
     )
 
     # Vector Store Configuration
-    vector_store_type: Literal["pgvector", "faiss"] = Field(
+    vector_store_type: Literal["pgvector"] = Field(
         default="pgvector",
-        description="Vector store type (pgvector or faiss)",
+        description="Vector store type (pgvector only)",
     )
 
     # pgvector Configuration
@@ -55,12 +55,6 @@ class RAGConfig(BaseSettings):
     pgvector_table_name: str = Field(
         default="embeddings",
         description="pgvector table name",
-    )
-
-    # FAISS Configuration
-    faiss_index_path: str = Field(
-        default="./faiss_index",
-        description="Path to FAISS index file",
     )
 
     # Chunking Strategy Configuration
@@ -145,7 +139,6 @@ VECTOR_STORE_TYPE = _config.vector_store_type
 PGVECTOR_CONNECTION_STRING = _config.pgvector_connection_string
 PGVECTOR_COLLECTION = _config.pgvector_collection
 PGVECTOR_TABLE_NAME = _config.pgvector_table_name
-FAISS_INDEX_PATH = _config.faiss_index_path
 CHUNKING_STRATEGY = _config.chunking_strategy
 CHUNK_SIZE = _config.chunk_size
 CHUNK_OVERLAP = _config.chunk_overlap

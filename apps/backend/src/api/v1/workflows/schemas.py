@@ -5,12 +5,23 @@ Request and response models for workflows endpoints.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 # Configuration
 MAX_DIFF_CONTENT_LENGTH = 10_000_000  # 10MB limit to prevent DoS
+
+# Signal types supported by the enhanced detection system
+SignalType = Literal["undo_redo", "time_pattern", "terminal", "debug", "semantic", "edit_pattern"]
+
+
+class SignalMetadata(BaseModel):
+    """Metadata for a detected signal."""
+
+    type: SignalType = Field(..., description="Type of signal detected")
+    score: float = Field(..., ge=0, le=1, description="Signal confidence score (0-1)")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Signal-specific metadata")
 
 
 class StruggleInput(BaseModel):
@@ -42,6 +53,42 @@ class StruggleInput(BaseModel):
     )
     retry_count: int | None = Field(
         default=None, ge=0, description="Detected retry count in window"
+    )
+
+    # Enhanced signal fields (from multi-signal detection system)
+    combined_score: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Weighted aggregate score from all signals (0-1)",
+    )
+    primary_signal: SignalType | None = Field(
+        default=None,
+        description="The signal type that contributed most to the detection",
+    )
+    signals: list[SignalMetadata] | None = Field(
+        default=None,
+        description="All contributing signals with their scores and metadata",
+    )
+
+    # Signal-specific context fields
+    undo_redo_pattern: str | None = Field(
+        default=None,
+        description="Description of detected undo/redo pattern (e.g., 'undo-redo-undo cycle')",
+    )
+    hesitation_ms: int | None = Field(
+        default=None,
+        ge=0,
+        description="Longest pause before rapid edits in milliseconds",
+    )
+    terminal_errors: list[str] | None = Field(
+        default=None,
+        description="Stack traces or error messages from terminal output",
+    )
+    debug_breakpoint_changes: int | None = Field(
+        default=None,
+        ge=0,
+        description="Number of breakpoint add/remove/change operations",
     )
 
 

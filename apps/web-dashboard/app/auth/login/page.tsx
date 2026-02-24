@@ -1,29 +1,26 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { ROUTES, isSafeCallbackUrl } from "@/lib/routes";
 
 function LoginPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useAuth();
+  const hasRedirected = useRef(false);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (!isLoading && isAuthenticated && !hasRedirected.current) {
+      hasRedirected.current = true;
       const callbackUrl = searchParams.get("callbackUrl");
       const redirectUrl =
         callbackUrl && isSafeCallbackUrl(callbackUrl) ? callbackUrl : ROUTES.DASHBOARD.ROOT;
 
-      const timeoutId = setTimeout(() => {
-        router.replace(redirectUrl);
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
+      window.location.href = redirectUrl;
     }
-  }, [isAuthenticated, isLoading, router, searchParams]);
+  }, [isAuthenticated, isLoading, searchParams]);
 
   if (isLoading) {
     return (

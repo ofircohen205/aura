@@ -134,3 +134,68 @@ Run the commands manually in a terminal:
 npm --prefix clients/vscode install
 npm --prefix clients/vscode run watch
 ```
+
+---
+
+## Debugging V2 Multi-Signal Detection
+
+The extension now uses `StruggleServiceV2` with a multi-signal architecture. Each signal type has its own detector that contributes to an aggregated struggle score.
+
+### Signal Detectors
+
+| Signal | File | What It Detects |
+|--------|------|-----------------|
+| **undoRedo** | `undo-redo-detector.ts` | Undo/redo keyboard patterns |
+| **timePattern** | `time-pattern-detector.ts` | Rapid edits or long pauses |
+| **terminal** | `terminal-detector.ts` | Failed tasks/builds |
+| **debug** | `debug-detector.ts` | Repeated debug sessions |
+| **semantic** | `semantic-detector.ts` | Language-aware issues (disabled by default) |
+| **editPattern** | `edit-pattern-detector.ts` | Repeated edits + diagnostics |
+
+### Add logging to see signal scores
+
+In `struggle-service-v2.ts`, add temporary logging inside `onDocumentChanged()`:
+
+```typescript
+const aggregated = this.aggregator.evaluate(fileKey, now);
+console.log("[Aura V2] Signals:", JSON.stringify(aggregated.signals));
+console.log("[Aura V2] Score:", aggregated.score, "Trigger:", aggregated.shouldTrigger);
+```
+
+View logs: **View → Output → Log (Extension Host)**
+
+### Set breakpoints in detectors
+
+1. Open the detector file you want to debug (e.g., `src/signals/edit-pattern-detector.ts`)
+2. Set breakpoints in:
+   - `recordEdit()` / `recordChange()` – when events are captured
+   - `evaluate()` – when scores are computed
+3. Start the Extension Host debugger and trigger the signal
+
+### Adjust thresholds at runtime
+
+Lower thresholds for easier testing by calling these in the debug console:
+
+```javascript
+// Access the struggle service (from extension.ts context)
+struggleService.updateThreshold(0.1);  // Lower trigger threshold
+struggleService.updateWeights({ editPattern: 2.0 });  // Boost edit weight
+```
+
+### Trigger specific signals
+
+| Signal | How to Trigger |
+|--------|----------------|
+| **editPattern** | Make 3+ similar edits near the same line |
+| **undoRedo** | Press Cmd/Ctrl+Z multiple times |
+| **timePattern** | Edit rapidly or pause then resume |
+| **terminal** | Run a failing build task |
+| **debug** | Start/stop debug sessions repeatedly |
+| **semantic** | Introduce type errors (TypeScript files) |
+
+### Check aggregator config
+
+```javascript
+console.log(struggleService.getConfig());
+// Shows: { windowMs, triggerThreshold, weights, cooldownMs }
+```

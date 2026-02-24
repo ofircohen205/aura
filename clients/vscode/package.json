@@ -103,6 +103,85 @@
           "type": "boolean",
           "default": false,
           "description": "Send the local file path to the backend (may reveal sensitive paths)"
+        },
+        "aura.signals.undoRedo.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable undo/redo pattern detection (detects undo-redo cycling)"
+        },
+        "aura.signals.timePattern.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable time pattern detection (detects hesitation and burst-after-pause)"
+        },
+        "aura.signals.terminal.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable terminal detection (detects test failures and stack traces)"
+        },
+        "aura.signals.debug.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable debug detection (detects breakpoint thrashing and short sessions)"
+        },
+        "aura.signals.semantic.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable semantic detection (detects structural vs cosmetic changes). Disabled by default due to higher overhead."
+        },
+        "aura.signals.editPattern.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable edit pattern detection (legacy Levenshtein-based retry detection)"
+        },
+        "aura.aggregation.triggerThreshold": {
+          "type": "number",
+          "default": 0.6,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Combined signal score threshold to trigger struggle detection (0-1)"
+        },
+        "aura.aggregation.weights.undoRedo": {
+          "type": "number",
+          "default": 0.25,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight for undo/redo signal in aggregation"
+        },
+        "aura.aggregation.weights.timePattern": {
+          "type": "number",
+          "default": 0.2,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight for time pattern signal in aggregation"
+        },
+        "aura.aggregation.weights.terminal": {
+          "type": "number",
+          "default": 0.2,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight for terminal signal in aggregation"
+        },
+        "aura.aggregation.weights.debug": {
+          "type": "number",
+          "default": 0.15,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight for debug signal in aggregation"
+        },
+        "aura.aggregation.weights.semantic": {
+          "type": "number",
+          "default": 0.1,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight for semantic signal in aggregation"
+        },
+        "aura.aggregation.weights.editPattern": {
+          "type": "number",
+          "default": 0.1,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight for edit pattern (legacy) signal in aggregation"
         }
       }
     }

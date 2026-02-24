@@ -145,7 +145,7 @@ The system follows a **Multi-Client Platform** architecture with a centralized s
 - **Framework**: FastAPI (Async)
 - **Orchestration**: LangGraph (Stateful Agents)
 - **Database**: PostgreSQL (SQLAlchemy/Alembic)
-- **Vector Store**: pgvector (PostgreSQL extension, Production) / FAISS (Local/Dev)
+- **Vector Store**: pgvector (PostgreSQL extension)
 
 ### Clients
 

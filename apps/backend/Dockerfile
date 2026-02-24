@@ -20,7 +20,7 @@ COPY apps/backend apps/backend
 RUN uv sync --frozen --package backend
 
 ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/libs/agentic-py/src:/app/apps/backend/src:$PYTHONPATH"
+ENV PYTHONPATH="/app/apps/backend:/app/libs/agentic-py/src:/app/apps/backend/src:$PYTHONPATH"
 
 # Development stage
 FROM base as development

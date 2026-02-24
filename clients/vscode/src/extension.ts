@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
-import { StruggleService } from "./struggle-service";
+import { StruggleServiceV2 } from "./struggle-service-v2";
 import { BackendClient } from "./backend-client";
 import { LessonPanel } from "./lesson-panel";
+import type { SignalWeights } from "./signals/types";
 
 type LessonState = {
   uri: vscode.Uri;
@@ -20,24 +21,53 @@ export function activate(context: vscode.ExtensionContext) {
 
   const auraCfg = vscode.workspace.getConfiguration("aura");
 
+  // Window configuration
   const windowMinutes = auraCfg.get<number>("windowMinutes", 5);
   const devWindowSeconds = auraCfg.get<number>("devWindowSeconds", 30);
-  const retryAttemptThreshold = auraCfg.get<number>("retryAttemptThreshold", 3);
   const cooldownMinutes = auraCfg.get<number>("cooldownMinutes", 2);
-  const maxSnippetChars = auraCfg.get<number>("maxSnippetChars", 300);
 
   const windowMs =
     context.extensionMode === vscode.ExtensionMode.Development
       ? Math.max(5, devWindowSeconds) * 1000
       : Math.max(0.1, windowMinutes) * 60_000;
 
+  // Signal enable configuration
+  const signalConfig = {
+    undoRedo: auraCfg.get<boolean>("signals.undoRedo.enabled", true),
+    timePattern: auraCfg.get<boolean>("signals.timePattern.enabled", true),
+    terminal: auraCfg.get<boolean>("signals.terminal.enabled", true),
+    debug: auraCfg.get<boolean>("signals.debug.enabled", true),
+    semantic: auraCfg.get<boolean>("signals.semantic.enabled", false),
+    editPattern: auraCfg.get<boolean>("signals.editPattern.enabled", true),
+  };
+
+  // Aggregation configuration
+  const triggerThreshold = auraCfg.get<number>("aggregation.triggerThreshold", 0.6);
+  const weights: SignalWeights = {
+    undo_redo: auraCfg.get<number>("aggregation.weights.undoRedo", 0.25),
+    time_pattern: auraCfg.get<number>("aggregation.weights.timePattern", 0.2),
+    terminal: auraCfg.get<number>("aggregation.weights.terminal", 0.2),
+    debug: auraCfg.get<number>("aggregation.weights.debug", 0.15),
+    semantic: auraCfg.get<number>("aggregation.weights.semantic", 0.1),
+    edit_pattern: auraCfg.get<number>("aggregation.weights.editPattern", 0.1),
+  };
+
   const backendClient = new BackendClient();
-  const struggleService = new StruggleService({
+  const struggleService = new StruggleServiceV2({
+    signals: signalConfig,
     windowMs,
-    retryAttemptThreshold,
-    cooldownMs: Math.max(0, cooldownMinutes) * 60_000,
-    maxSnippetChars,
+    aggregator: {
+      triggerThreshold,
+      weights,
+      cooldownMs: Math.max(0, cooldownMinutes) * 60_000,
+      windowMs,
+    },
   });
+
+  // Subscribe detectors to VSCode events
+  const eventSubscriptions = struggleService.subscribeToEvents();
+  context.subscriptions.push(...eventSubscriptions);
+
   const lessonPanel = new LessonPanel();
 
   const lessonsByFileKey = new Map<string, LessonState>();
@@ -137,16 +167,25 @@ export function activate(context: vscode.ExtensionContext) {
       const detection = struggleService.onDocumentChanged(event);
       if (!detection) return;
 
-      const { decision, context: struggleContext } = detection;
+      const { aggregated, context: struggleContext } = detection;
 
       const cfg = vscode.workspace.getConfiguration("aura");
       const sendCodeSnippet = cfg.get<boolean>("sendCodeSnippet", true);
       const sendFilePath = cfg.get<boolean>("sendFilePath", false);
 
-      // Trigger backend workflow; UI surfacing happens in a follow-up step.
+      // Build enhanced payload with signal information
+      const signalMetadata = aggregated.signals.map(s => ({
+        type: s.type,
+        score: s.score,
+        metadata: s.metadata,
+      }));
+
+      // Trigger backend workflow with enhanced signal data
       void backendClient
         .triggerStruggleWorkflow({
-          edit_frequency: decision.metrics.editFrequencyPerMin,
+          edit_frequency:
+            aggregated.signals.find(s => s.type === "edit_pattern")?.metadata.editFrequencyPerMin ??
+            0,
           error_logs: struggleContext.diagnosticsErrors,
           history: sendCodeSnippet && struggleContext.snippet ? [struggleContext.snippet] : [],
           source: "vscode",
@@ -154,8 +193,21 @@ export function activate(context: vscode.ExtensionContext) {
           language_id: struggleContext.languageId,
           code_snippet: sendCodeSnippet ? struggleContext.snippet : null,
           client_timestamp: Date.now(),
-          struggle_reason: decision.reason,
-          retry_count: decision.metrics.retryCount,
+          struggle_reason: aggregated.primarySignal,
+          retry_count:
+            aggregated.signals.find(s => s.type === "edit_pattern")?.metadata.retryCount ?? 0,
+          // Enhanced signal fields
+          combined_score: aggregated.combinedScore,
+          primary_signal: aggregated.primarySignal,
+          signals: signalMetadata,
+          undo_redo_pattern:
+            aggregated.signals.find(s => s.type === "undo_redo")?.metadata.pattern ?? null,
+          hesitation_ms:
+            aggregated.signals.find(s => s.type === "time_pattern")?.metadata.hesitationMs ?? null,
+          terminal_errors:
+            aggregated.signals.find(s => s.type === "terminal")?.metadata.terminalErrors ?? null,
+          debug_breakpoint_changes:
+            aggregated.signals.find(s => s.type === "debug")?.metadata.breakpointChanges ?? null,
         })
         .then(result => {
           if (!result) return;
@@ -176,7 +228,7 @@ export function activate(context: vscode.ExtensionContext) {
             fileKey,
             lesson,
             line,
-            reason: decision.reason,
+            reason: aggregated.primarySignal,
             createdAtMs: Date.now(),
           });
           codeLensRefresh.fire();
@@ -217,6 +269,13 @@ export function activate(context: vscode.ExtensionContext) {
       struggleService.onDiagnosticsChanged(e);
     })
   );
+
+  // Cleanup on deactivation
+  context.subscriptions.push({
+    dispose: () => {
+      struggleService.dispose();
+    },
+  });
 
   // Initial Health Check
   backendClient.healthCheck().then(healthy => {

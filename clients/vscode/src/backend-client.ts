@@ -3,6 +3,21 @@ import * as vscode from "vscode";
 
 const AURA_CLIENT = "vscode";
 
+// Signal types for enhanced detection
+export type SignalType =
+  | "undo_redo"
+  | "time_pattern"
+  | "terminal"
+  | "debug"
+  | "semantic"
+  | "edit_pattern";
+
+export type SignalMetadata = {
+  type: SignalType;
+  score: number;
+  metadata: Record<string, unknown>;
+};
+
 export type StruggleWorkflowRequest = {
   edit_frequency: number;
   error_logs: string[];
@@ -15,6 +30,14 @@ export type StruggleWorkflowRequest = {
   client_timestamp?: number;
   struggle_reason?: string | null;
   retry_count?: number;
+  // Enhanced signal fields (from multi-signal detection system)
+  combined_score?: number;
+  primary_signal?: SignalType | null;
+  signals?: SignalMetadata[];
+  undo_redo_pattern?: string | null;
+  hesitation_ms?: number | null;
+  terminal_errors?: string[] | null;
+  debug_breakpoint_changes?: number | null;
 };
 
 export type WorkflowResponse = {
