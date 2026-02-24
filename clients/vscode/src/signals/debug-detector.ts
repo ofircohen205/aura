@@ -181,17 +181,19 @@ export class DebugDetector implements SignalDetector {
     // Get most recent short session duration
     const lastShortSession = shortSessions.sort((a, b) => b.tsMs - a.tsMs)[0];
 
-    return [{
-      type: "debug",
-      score,
-      tsMs: now,
-      fileKey: null, // Debug signals are global
-      metadata: {
-        breakpointChanges: totalBreakpointChanges,
-        sessionDurationMs: lastShortSession?.durationMs,
-        shortSession,
+    return [
+      {
+        type: "debug",
+        score,
+        tsMs: now,
+        fileKey: null, // Debug signals are global
+        metadata: {
+          breakpointChanges: totalBreakpointChanges,
+          sessionDurationMs: lastShortSession?.durationMs,
+          shortSession,
+        },
       },
-    }];
+    ];
   }
 
   private pruneEvents(now: number): void {

@@ -59,8 +59,10 @@ export class UndoRedoDetector implements SignalDetector {
     // TextDocumentChangeReason is available in VSCode 1.44+
     // 1 = Undo, 2 = Redo
     const reason = event.reason;
-    if (reason !== vscode.TextDocumentChangeReason.Undo &&
-        reason !== vscode.TextDocumentChangeReason.Redo) {
+    if (
+      reason !== vscode.TextDocumentChangeReason.Undo &&
+      reason !== vscode.TextDocumentChangeReason.Redo
+    ) {
       return;
     }
 

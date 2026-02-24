@@ -232,10 +232,7 @@ export class SemanticDetector implements SignalDetector {
     if (totalStructuralChanges < this.config.minStructuralChanges) return null;
 
     // Calculate score based on structural churn
-    const score = Math.min(
-      1,
-      totalStructuralChanges / (this.config.minStructuralChanges * 2)
-    );
+    const score = Math.min(1, totalStructuralChanges / (this.config.minStructuralChanges * 2));
 
     // Determine change type (more structural = more struggle)
     const changeType: "structural" | "cosmetic" | "unknown" =

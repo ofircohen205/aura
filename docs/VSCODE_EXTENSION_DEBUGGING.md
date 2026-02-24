@@ -143,14 +143,14 @@ The extension now uses `StruggleServiceV2` with a multi-signal architecture. Eac
 
 ### Signal Detectors
 
-| Signal | File | What It Detects |
-|--------|------|-----------------|
-| **undoRedo** | `undo-redo-detector.ts` | Undo/redo keyboard patterns |
-| **timePattern** | `time-pattern-detector.ts` | Rapid edits or long pauses |
-| **terminal** | `terminal-detector.ts` | Failed tasks/builds |
-| **debug** | `debug-detector.ts` | Repeated debug sessions |
-| **semantic** | `semantic-detector.ts` | Language-aware issues (disabled by default) |
-| **editPattern** | `edit-pattern-detector.ts` | Repeated edits + diagnostics |
+| Signal          | File                       | What It Detects                             |
+| --------------- | -------------------------- | ------------------------------------------- |
+| **undoRedo**    | `undo-redo-detector.ts`    | Undo/redo keyboard patterns                 |
+| **timePattern** | `time-pattern-detector.ts` | Rapid edits or long pauses                  |
+| **terminal**    | `terminal-detector.ts`     | Failed tasks/builds                         |
+| **debug**       | `debug-detector.ts`        | Repeated debug sessions                     |
+| **semantic**    | `semantic-detector.ts`     | Language-aware issues (disabled by default) |
+| **editPattern** | `edit-pattern-detector.ts` | Repeated edits + diagnostics                |
 
 ### Add logging to see signal scores
 
@@ -178,20 +178,20 @@ Lower thresholds for easier testing by calling these in the debug console:
 
 ```javascript
 // Access the struggle service (from extension.ts context)
-struggleService.updateThreshold(0.1);  // Lower trigger threshold
-struggleService.updateWeights({ editPattern: 2.0 });  // Boost edit weight
+struggleService.updateThreshold(0.1); // Lower trigger threshold
+struggleService.updateWeights({ editPattern: 2.0 }); // Boost edit weight
 ```
 
 ### Trigger specific signals
 
-| Signal | How to Trigger |
-|--------|----------------|
+| Signal          | How to Trigger                           |
+| --------------- | ---------------------------------------- |
 | **editPattern** | Make 3+ similar edits near the same line |
-| **undoRedo** | Press Cmd/Ctrl+Z multiple times |
-| **timePattern** | Edit rapidly or pause then resume |
-| **terminal** | Run a failing build task |
-| **debug** | Start/stop debug sessions repeatedly |
-| **semantic** | Introduce type errors (TypeScript files) |
+| **undoRedo**    | Press Cmd/Ctrl+Z multiple times          |
+| **timePattern** | Edit rapidly or pause then resume        |
+| **terminal**    | Run a failing build task                 |
+| **debug**       | Start/stop debug sessions repeatedly     |
+| **semantic**    | Introduce type errors (TypeScript files) |
 
 ### Check aggregator config
 

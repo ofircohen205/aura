@@ -153,8 +153,8 @@ export class TimePatternDetector implements SignalDetector {
       if (gap > maxHesitation && gap >= this.config.hesitationThresholdMs) {
         maxHesitation = gap;
         // Check if there's activity after this gap
-        hasActivityAfterHesitation = i < timestamps.length - 1 ||
-          (now - timestamps[i].tsMs < this.config.burstGapMs * 3);
+        hasActivityAfterHesitation =
+          i < timestamps.length - 1 || now - timestamps[i].tsMs < this.config.burstGapMs * 3;
       }
     }
 

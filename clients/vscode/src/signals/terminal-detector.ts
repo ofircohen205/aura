@@ -40,15 +40,15 @@ const DEFAULT_CONFIG: TerminalDetectorConfig = {
     /Test\s+failed/i,
     /npm\s+ERR!/i,
     /Error:\s+expect/i,
-    /✗|✕|×/,  // Common test failure symbols
+    /✗|✕|×/, // Common test failure symbols
   ],
   stackTracePatterns: [
-    /^\s+at\s+.+\(.+:\d+:\d+\)/m,  // JavaScript stack traces
-    /Traceback \(most recent call last\)/i,  // Python tracebacks
-    /^\s+File ".+", line \d+/m,  // Python file lines
-    /Exception in thread/i,  // Java exceptions
-    /panic:/i,  // Go panics
-    /error\[E\d+\]:/i,  // Rust errors
+    /^\s+at\s+.+\(.+:\d+:\d+\)/m, // JavaScript stack traces
+    /Traceback \(most recent call last\)/i, // Python tracebacks
+    /^\s+File ".+", line \d+/m, // Python file lines
+    /Exception in thread/i, // Java exceptions
+    /panic:/i, // Go panics
+    /error\[E\d+\]:/i, // Rust errors
   ],
 };
 
@@ -204,17 +204,19 @@ export class TerminalDetector implements SignalDetector {
       .filter(e => e.exitCode !== undefined)
       .sort((a, b) => b.tsMs - a.tsMs)[0];
 
-    return [{
-      type: "terminal",
-      score,
-      tsMs: now,
-      fileKey: null, // Terminal signals are global
-      metadata: {
-        terminalErrors: allErrors.slice(0, 10), // Limit for payload size
-        exitCode: lastTaskEvent?.exitCode,
-        taskName: lastTaskEvent?.taskName,
+    return [
+      {
+        type: "terminal",
+        score,
+        tsMs: now,
+        fileKey: null, // Terminal signals are global
+        metadata: {
+          terminalErrors: allErrors.slice(0, 10), // Limit for payload size
+          exitCode: lastTaskEvent?.exitCode,
+          taskName: lastTaskEvent?.taskName,
+        },
       },
-    }];
+    ];
   }
 
   private pruneEvents(now: number): void {
